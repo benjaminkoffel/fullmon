@@ -8,6 +8,9 @@
 -f 1
 
 # Remove Noise
+-a always,exclude -F msgtype=ANOM_PROMISCUOUS
+-a always,exclude -F msgtype=BPRM_FCAPS
+-a always,exclude -F msgtype=CRED_DISP
 -a always,exclude -F msgtype=CRYPTO_KEY_USER
 -a always,exclude -F msgtype=CWD
 -a always,exclude -F msgtype=EOE
