@@ -1,0 +1,25 @@
+# Flush Rules
+-D
+
+# Buffer Size (32KB)
+-b 32768
+
+# Failure Mode (0: silent, 1: print, 2: panic)
+-f 1
+
+# Remove Noise
+-a always,exclude -F msgtype=CRYPTO_KEY_USER
+-a always,exclude -F msgtype=CWD
+-a always,exclude -F msgtype=EOE
+-a always,exclude -F msgtype=SECCOMP
+
+# Process Execution
+-a always,exit -F arch=b64 -S execve -k PROCESS
+-a always,exit -F arch=b32 -S execve -k PROCESS
+
+# Network Connection
+-a always,exit -F arch=b64 -F a0=3 -F a2=16 -F exit=0 -S connect -k NETCONN
+-a always,exit -F arch=b32 -F a0=3 -F a2=16 -F exit=0 -S connect -k NETCONN
+
+# File Modification
+-w / -p wa -k FILEMOD
