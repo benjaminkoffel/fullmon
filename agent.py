@@ -2,6 +2,7 @@
 import argparse
 import datetime
 import logging
+import os
 import queue
 import sys
 import threading
@@ -16,11 +17,14 @@ MIN_PATH_LENGTH = 1
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s')
 
-def initialize_graph():
-    graph = graphdb.graph()
-    graph.add_index('id')
-    graph.add_index('process.pid')
-    return graph
+def compare(baseline, actual):
+    paths = actual.list_paths()
+    for path in paths:
+        pruned = [p for p in path if p.attributes['id'] != 'proc::']
+        if len(pruned) >= MIN_PATH_LENGTH:
+            logging.debug('+compare')
+            if not baseline.has_path(pruned, 'id'):
+                logging.info('ANOMALY DETECTED: %s', '->'.join(v.attributes['id'] for v in pruned))
 
 def record(graph, events):
     for event in events:
@@ -49,14 +53,31 @@ def record(graph, events):
                 graph.add_edge(a, b, {})
                 logging.debug('+netconn')
 
-def compare(baseline, actual):
-    paths = actual.list_paths()
-    for path in paths:
-        pruned = [p for p in path if p.attributes['id'] != 'proc::']
-        if len(pruned) >= MIN_PATH_LENGTH:
-            logging.debug('+compare')
-            if not baseline.has_path(pruned, 'id'):
-                logging.info('ANOMALY DETECTED: %s', '->'.join(v.attributes['id'] for v in pruned))
+def processes():
+    try:
+        files = os.listdir('/proc')
+    except FileNotFoundError:
+        files = []
+    for pid in files: 
+        if pid.isdigit():
+            with open('/proc/{}/uid_map'.format(pid)) as f:
+                uid_map = f.read()
+            try:
+                exe = os.readlink('/proc/{}/exe'.format(pid))
+            except FileNotFoundError:
+                with open('/proc/{}/comm'.format(pid)) as f:
+                    exe = f.read()
+            yield int(pid), int(uid_map.split()[0]), exe.strip()
+
+def initialize_graph():
+    graph = graphdb.graph()
+    graph.add_index('id')
+    graph.add_index('process.pid')
+    for pid, uid, exe in processes():
+        graph.add_vertex({
+            'id': 'proc:{}:{}'.format(uid, exe),
+            'process.pid': pid})
+    return graph
 
 def tail(path, wait, action):
     cur = 0

@@ -4,6 +4,7 @@ set -e
 
 apt update
 apt install -y auditd dnsmasq
+cp audit.rules /etc/audit/audit.rules
 cp audit.rules /etc/audit/rules.d/audit.rules
 service auditd restart
 echo "log-queries
