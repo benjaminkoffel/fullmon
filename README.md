@@ -16,7 +16,7 @@ A work in progress is an agent that uses comparison of machine behaviour graphs 
 
 ```
 sh install.sh
-tail -f /var/log/audit/audit.log | python3 agent.py
+python3 agent.py --auditd /var/log/audit/audit.log --baseline 60 --monitor 10
 ```
 
 ## References
