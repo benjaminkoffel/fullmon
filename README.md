@@ -19,6 +19,27 @@ sh install.sh
 python3 agent.py --auditd /var/log/audit/audit.log --baseline 60 --monitor 10
 ```
 
+## Example
+
+```
+$ sudo python3 agent.py --auditd /var/log/audit/audit.log --baseline 5 --monitor 10
+2018-10-26 06:33:57,684	root	INFO	baseline
+2018-10-26 06:34:03,725	root	INFO	collect
+2018-10-26 06:34:14,790	root	INFO	detect
+2018-10-26 06:34:14,916	root	INFO	collect
+2018-10-26 06:34:25,991	root	INFO	detect
+2018-10-26 06:34:25,993	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.192.176:0
+2018-10-26 06:34:25,997	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.192.145:0
+2018-10-26 06:34:25,998	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.192.221:0
+2018-10-26 06:34:25,999	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.193.171:0
+2018-10-26 06:34:26,000	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.192.176:0
+2018-10-26 06:34:26,006	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.192.145:0
+2018-10-26 06:34:26,007	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.192.221:0
+2018-10-26 06:34:26,010	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.193.171:0
+2018-10-26 06:34:26,105	root	INFO	collect
+2018-10-26 06:34:37,192	root	INFO	detect
+```
+
 ## References
 
 - http://snap.stanford.edu/class/cs224w-2015/projects_2015/Anomaly_Detection_in_Graphs.pdf
