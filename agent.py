@@ -73,6 +73,7 @@ def processes():
             except FileNotFoundError:
                 continue
         yield pid, uid, exe
+        logging.debug('+proc')
 
 def initialize_graph():
     graph = graphdb.graph()
