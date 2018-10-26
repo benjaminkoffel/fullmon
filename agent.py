@@ -10,18 +10,13 @@ import time
 import auditd
 import graphdb
 
-WAIT_SECONDS = 0.1
-BASELINE_SECONDS = 10
-DETECT_SECONDS = 2
-MIN_PATH_LENGTH = 1
-
 logging.basicConfig(level=logging.INFO, format='%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s')
 
 def compare(baseline, actual):
     paths = actual.list_paths()
     for path in paths:
         pruned = [p for p in path if p.attributes['id'] != 'proc::']
-        if len(pruned) >= MIN_PATH_LENGTH:
+        if pruned:
             logging.debug('+compare')
             if not baseline.has_path(pruned, 'id'):
                 logging.info('ANOMALY DETECTED: %s', '->'.join(v.attributes['id'] for v in pruned))
@@ -105,11 +100,13 @@ def tail(path, wait, action):
 def main():
     parser = argparse.ArgumentParser(description='Monitor auditd logs for anomalous user behaviour.')
     parser.add_argument('--auditd', help='Path to auditd log file.', required=True)
-    parser.add_argument('--baseline', help='Time in seconds to generate baseline.', required=True)
+    parser.add_argument('--baseline', type=int, help='Time in seconds to generate baseline.', required=True)
+    parser.add_argument('--monitor', type=int, help='Time in seconds before each baseline comparison.', required=True)
     args = parser.parse_args()
     # initialize state
+    wait_seconds = 0.1
     auditd_queue = queue.Queue()
-    auditd_thread = threading.Thread(target=tail, args=(args.auditd, WAIT_SECONDS, lambda x: auditd_queue.put(x)))
+    auditd_thread = threading.Thread(target=tail, args=(args.auditd, wait_seconds, lambda x: auditd_queue.put(x)))
     auditd_thread.daemon = True
     auditd_thread.start()
     baseline, actual = initialize_graph(), initialize_graph()
@@ -119,10 +116,10 @@ def main():
         while True:
             now = datetime.datetime.now()
             # state transitions
-            if state == 'baseline' and (now - init).seconds > BASELINE_SECONDS:
+            if state == 'baseline' and (now - init).seconds > args.baseline:
                 state, init = 'collect', datetime.datetime.now()
                 logging.info(state)
-            elif state == 'collect' and (now - init).seconds > DETECT_SECONDS:
+            elif state == 'collect' and (now - init).seconds > args.monitor:
                 state, init = 'detect', datetime.datetime.now()
                 logging.info(state)
             elif state == 'detect':
@@ -135,7 +132,7 @@ def main():
                     auditd.collect(line, lambda x: record(baseline, x))
                     auditd_queue.task_done()
                 except queue.Empty:
-                    time.sleep(WAIT_SECONDS)
+                    time.sleep(wait_seconds)
             elif state == 'collect':
                 try:
                     line = auditd_queue.get(block=False)
@@ -143,7 +140,7 @@ def main():
                         auditd.collect(line, lambda x: record(actual, x))
                         auditd_queue.task_done()
                 except queue.Empty:
-                    time.sleep(WAIT_SECONDS)
+                    time.sleep(wait_seconds)
             elif state == 'detect':
                 compare(baseline, actual)
                 actual = initialize_graph()
