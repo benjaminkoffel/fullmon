@@ -1,0 +1,9 @@
+[Unit]
+Description=fullmon
+
+[Service]
+ExecStart=/opt/fullmon/daemon.sh
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

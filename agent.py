@@ -10,7 +10,7 @@ import time
 import auditd
 import graphdb
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s', stream=sys.stdout)
 
 def compare(baseline, actual):
     paths = actual.list_paths()
