@@ -34,19 +34,20 @@ def record(graph, events):
                     'id': 'proc:{}:{}'.format(event['uid'], event['exe']),
                     'process.pid': event['pid']})    
                 graph.add_edge(a, b, {})
-                logging.debug('+exec')
+                logging.debug('+exec %s %s %s', event['pid'], event['uid'], event['exe'])
         elif event['type'] == 'filemod':
             for a in graph.find_vertices('process.pid', event['pid']):
                 b = graph.add_vertex({
                     'id': 'file:{}:{}'.format(event['action'], event['path'])})
                 graph.add_edge(a, b, {})
-                logging.debug('+filemod')
+                logging.debug('+filemod %s %s %s', event['pid'], event['action'], event['path'])
         elif event['type'] == 'netconn':
+            print('netconn', event['pid'], event['ip'], event['port'])
             for a in graph.find_vertices('process.pid', event['pid']):
                 b = graph.add_vertex({
                     'id': 'host:{}:{}'.format(event['ip'], event['port'])})
                 graph.add_edge(a, b, {})
-                logging.debug('+netconn')
+                logging.debug('+netconn %s %s %s', event['pid'], event['ip'], event['port'])
 
 def processes():
     try:
@@ -68,7 +69,7 @@ def processes():
             except FileNotFoundError:
                 continue
         yield pid, uid, exe
-        logging.debug('+proc')
+        logging.debug('+proc %s %s %s', pid, uid, exe)
 
 def initialize_graph():
     graph = graphdb.graph()
