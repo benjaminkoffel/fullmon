@@ -55,19 +55,18 @@ def record(graph, events):
 
 def processes():
     try:
-        files = os.listdir('/proc')
+        pids = [int(f) for f in os.listdir('/proc') if f.isdigit()]
     except FileNotFoundError:
-        files = []
-    for pid in files: 
-        if pid.isdigit():
-            with open('/proc/{}/uid_map'.format(pid)) as f:
-                uid_map = f.read()
-            try:
-                exe = os.readlink('/proc/{}/exe'.format(pid))
-            except FileNotFoundError:
-                with open('/proc/{}/comm'.format(pid)) as f:
-                    exe = f.read()
-            yield int(pid), int(uid_map.split()[0]), exe.strip()
+        pids = []
+    for pid in pids: 
+        with open('/proc/{}/uid_map'.format(pid)) as f:
+            uid = int(f.read().split()[0])
+        try:
+            exe = os.readlink('/proc/{}/exe'.format(pid))
+        except FileNotFoundError:
+            with open('/proc/{}/comm'.format(pid)) as f:
+                exe = f.read().strip()
+        yield pid, uid, exe
 
 def initialize_graph():
     graph = graphdb.graph()
