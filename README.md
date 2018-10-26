@@ -10,7 +10,7 @@ The generated logs are intended to be shipped to event storage where analysts ca
 
 The size of logs generated is excessive but the project's aim is just to demonstrate an incident response / threat hunting capability can be obtained with readily available system tools.
 
-A work in progress is an agent that uses graph comparison of machine behaviour to detect anomalies.
+A work in progress is an agent that uses comparison of machine behaviour graphs to detect anomalies.
 
 ## Usage
 
@@ -21,6 +21,6 @@ tail -f /var/log/audit/audit.log | python3 agent.py
 
 ## References
 
-http://snap.stanford.edu/class/cs224w-2015/projects_2015/Anomaly_Detection_in_Graphs.pdf
-https://www.sciencedirect.com/science/article/pii/S2352664516300177
-https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/security_guide/sec-understanding_audit_log_files
+- http://snap.stanford.edu/class/cs224w-2015/projects_2015/Anomaly_Detection_in_Graphs.pdf
+- https://www.sciencedirect.com/science/article/pii/S2352664516300177
+- https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/security_guide/sec-understanding_audit_log_files
