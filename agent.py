@@ -57,15 +57,21 @@ def processes():
     try:
         pids = [int(f) for f in os.listdir('/proc') if f.isdigit()]
     except FileNotFoundError:
-        pids = []
+        return
     for pid in pids: 
-        with open('/proc/{}/uid_map'.format(pid)) as f:
-            uid = int(f.read().split()[0])
+        try:
+            with open('/proc/{}/uid_map'.format(pid)) as f:
+                uid = int(f.read().split()[0])
+        except FileNotFoundError:
+            continue
         try:
             exe = os.readlink('/proc/{}/exe'.format(pid))
         except FileNotFoundError:
-            with open('/proc/{}/comm'.format(pid)) as f:
-                exe = f.read().strip()
+            try:
+                with open('/proc/{}/comm'.format(pid)) as f:
+                    exe = f.read().strip()
+            except FileNotFoundError:
+                continue
         yield pid, uid, exe
 
 def initialize_graph():
@@ -98,6 +104,7 @@ def tail(path, wait, action):
 def main():
     parser = argparse.ArgumentParser(description='Monitor auditd logs for anomalous user behaviour.')
     parser.add_argument('--auditd', help='Path to auditd log file.', required=True)
+    parser.add_argument('--baseline', help='Time in seconds to generate baseline.', required=True)
     args = parser.parse_args()
     # initialize state
     auditd_queue = queue.Queue()
