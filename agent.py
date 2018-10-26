@@ -19,7 +19,7 @@ def compare(baseline, actual):
         if len(pruned) > 1:
             logging.debug('+compare')
             if not baseline.has_path(pruned, 'id'):
-                logging.info('ANOMALY DETECTED: %s', '->'.join(v.attributes['id'] for v in pruned))
+                logging.warning('ANOMALOUS ACTIVITY DETECTED: %s', ' -> '.join(v.attributes['id'] for v in pruned))
 
 def record(graph, events):
     for event in events:
