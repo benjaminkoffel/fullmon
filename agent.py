@@ -16,7 +16,7 @@ def compare(baseline, actual):
     paths = actual.list_paths()
     for path in paths:
         pruned = [p for p in path if p.attributes['id'] != 'proc::']
-        if pruned:
+        if len(pruned) > 1:
             logging.debug('+compare')
             if not baseline.has_path(pruned, 'id'):
                 logging.info('ANOMALY DETECTED: %s', '->'.join(v.attributes['id'] for v in pruned))
