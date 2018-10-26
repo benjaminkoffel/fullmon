@@ -32,6 +32,7 @@ def to_netconn(messages):
             'type': 'netconn',
             'ppid': syscall[0]['ppid'],
             'pid': syscall[0]['pid'],
+            'uid': syscall[0]['uid'],
             'exe': syscall[0]['exe'],
             'ip': ip,
             'port': port
@@ -51,6 +52,7 @@ def to_filemod(messages):
                     'type': 'filemod',
                     'ppid': syscall[0]['ppid'],
                     'pid': syscall[0]['pid'],
+                    'uid': syscall[0]['uid'],
                     'exe': syscall[0]['exe'],
                     'path': name,
                     'action': nametype
@@ -88,10 +90,13 @@ def collect(line, action):
     if collect.buffer and collect.buffer[0]['msg'] != values.get('msg'):
         key = ''.join(i.get('key') for i in collect.buffer if i.get('type') == 'SYSCALL')
         if key == 'PROCESS':
-            action(to_process(collect.buffer))
+            events = to_process(collect.buffer)
         elif key == 'FILEMOD':
-            action(to_filemod(collect.buffer))
+            events = to_filemod(collect.buffer)
         elif key == 'NETCONN':
-            action(to_netconn(collect.buffer))
+            events = to_netconn(collect.buffer)
+        else:
+            events = []
+        action(events)
         collect.buffer = []
     collect.buffer.append(values)

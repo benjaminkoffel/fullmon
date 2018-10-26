@@ -23,26 +23,28 @@ def compare(baseline, actual):
 
 def record(graph, events):
     for event in events:
-        if event['type'] == 'process':
+        if event['type'] in ['process', 'filemod', 'netconn']:
             A = graph.find_vertices('process.pid', event['ppid'])
             if not A:
                 A = [graph.add_vertex({
                     'id': 'proc::',
                     'process.pid': event['ppid']})]
             for a in A:
-                b = graph.add_vertex({
-                    'id': 'proc:{}:{}'.format(event['uid'], event['exe']),
-                    'process.pid': event['pid']})    
-                graph.add_edge(a, b, {})
-                logging.debug('+exec %s %s %s', event['pid'], event['uid'], event['exe'])
-        elif event['type'] == 'filemod':
+                B = graph.find_vertices('process.pid', event['pid'])
+                if not B:
+                    B = [graph.add_vertex({
+                        'id': 'proc:{}:{}'.format(event['uid'], event['exe']),
+                        'process.pid': event['pid']})]
+                for b in B:
+                    graph.add_edge(a, b, {})
+                    logging.debug('+exec %s %s %s', event['pid'], event['uid'], event['exe'])
+        if event['type'] == 'filemod':
             for a in graph.find_vertices('process.pid', event['pid']):
                 b = graph.add_vertex({
                     'id': 'file:{}:{}'.format(event['action'], event['path'])})
                 graph.add_edge(a, b, {})
                 logging.debug('+filemod %s %s %s', event['pid'], event['action'], event['path'])
-        elif event['type'] == 'netconn':
-            print('netconn', event['pid'], event['ip'], event['port'])
+        if event['type'] == 'netconn':
             for a in graph.find_vertices('process.pid', event['pid']):
                 b = graph.add_vertex({
                     'id': 'host:{}:{}'.format(event['ip'], event['port'])})

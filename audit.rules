@@ -21,8 +21,8 @@
 -a always,exit -F arch=b32 -S execve -k PROCESS
 
 # Network Connection
--a always,exit -F arch=b64 -F a0=3 -F a2=16 -F exit=0 -S connect -k NETCONN
--a always,exit -F arch=b32 -F a0=3 -F a2=16 -F exit=0 -S connect -k NETCONN
+-a always,exit -F arch=b64 -F a2=16 -F exit=0 -S connect -k NETCONN
+-a always,exit -F arch=b32 -F a2=16 -F exit=0 -S connect -k NETCONN
 
 # File Modification
 -w / -p wa -k FILEMOD
