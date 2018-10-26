@@ -19,4 +19,5 @@ cp auditd.py /opt/fullmon/
 cp graphdb.py /opt/fullmon/
 cp daemon.sh  /opt/fullmon/
 cp fullmon.service /etc/systemd/system/
+chmod 700 /opt/fullmon/daemon.sh
 service fullmon start
