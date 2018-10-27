@@ -2,15 +2,14 @@
 import argparse
 import datetime
 import logging
-import os
 import queue
 import sys
 import threading
 import time
-import auditd
+import audit
 import graphdb
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s', stream=sys.stdout)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s\t%(levelname)s\t%(message)s', stream=sys.stdout)
 
 def compare(baseline, actual):
     paths = actual.list_paths()
@@ -19,7 +18,7 @@ def compare(baseline, actual):
         if len(pruned) > 1:
             logging.debug('+compare')
             if not baseline.has_path(pruned, 'id'):
-                logging.warning('ANOMALOUS ACTIVITY DETECTED: %s', ' -> '.join(v.attributes['id'] for v in pruned))
+                logging.warning('->'.join(v.attributes['id'] for v in pruned))
 
 def record(graph, events):
     for event in events:
@@ -36,6 +35,8 @@ def record(graph, events):
                         'id': 'proc:{}:{}'.format(event['uid'], event['exe']),
                         'process.pid': event['pid']})]
                 for b in B:
+                    b.attributes['uid'] = event['uid']
+                    b.attributes['exe'] = event['exe']
                     graph.add_edge(a, b, {})
                     logging.debug('+exec %s %s %s', event['pid'], event['uid'], event['exe'])
         if event['type'] == 'filemod':
@@ -51,36 +52,11 @@ def record(graph, events):
                 graph.add_edge(a, b, {})
                 logging.debug('+netconn %s %s %s', event['pid'], event['ip'], event['port'])
 
-def processes():
-    try:
-        pids = [int(f) for f in os.listdir('/proc') if f.isdigit()]
-    except FileNotFoundError:
-        return
-    for pid in pids: 
-        try:
-            with open('/proc/{}/uid_map'.format(pid)) as f:
-                uid = int(f.read().split()[0])
-        except FileNotFoundError:
-            continue
-        try:
-            exe = os.readlink('/proc/{}/exe'.format(pid))
-        except FileNotFoundError:
-            try:
-                with open('/proc/{}/comm'.format(pid)) as f:
-                    exe = f.read().strip()
-            except FileNotFoundError:
-                continue
-        yield pid, uid, exe
-        logging.debug('+proc %s %s %s', pid, uid, exe)
-
 def initialize_graph():
     graph = graphdb.graph()
     graph.add_index('id')
     graph.add_index('process.pid')
-    for pid, uid, exe in processes():
-        graph.add_vertex({
-            'id': 'proc:{}:{}'.format(uid, exe),
-            'process.pid': pid})
+    record(graph, audit.processes())    
     return graph
 
 def tail(path, wait, action):
@@ -98,55 +74,64 @@ def tail(path, wait, action):
                 cur = f.tell()
         except IOError as e:
             pass
+        except Exception:
+            logging.exception('tail_loop')
         time.sleep(wait)
 
 def main():
-    parser = argparse.ArgumentParser(description='Monitor auditd logs for anomalous user behaviour.')
-    parser.add_argument('--auditd', help='Path to auditd log file.', required=True)
-    parser.add_argument('--baseline', type=int, help='Time in seconds to generate baseline.', required=True)
-    parser.add_argument('--monitor', type=int, help='Time in seconds before each baseline comparison.', required=True)
-    args = parser.parse_args()
-    # initialize state
-    wait_seconds = 0.1
-    auditd_queue = queue.Queue()
-    auditd_thread = threading.Thread(target=tail, args=(args.auditd, wait_seconds, lambda x: auditd_queue.put(x)))
-    auditd_thread.daemon = True
-    auditd_thread.start()
-    baseline, actual = initialize_graph(), initialize_graph()
-    state, init = 'baseline', datetime.datetime.now()
-    logging.info(state)
     try:
+        # define parameters
+        parser = argparse.ArgumentParser(description='Monitor auditd logs for anomalous user behaviour.')
+        parser.add_argument('--auditd', help='Path to auditd log file.', required=True)
+        parser.add_argument('--baseline', type=int, help='Time in seconds to generate baseline.', required=True)
+        parser.add_argument('--monitor', type=int, help='Time in seconds before each baseline comparison.', required=True)
+        args = parser.parse_args()
+        # initialize state
+        wait_seconds = 0.1
+        auditd_queue = queue.Queue()
+        auditd_thread = threading.Thread(target=tail, args=(args.auditd, wait_seconds, lambda x: auditd_queue.put(x)))
+        auditd_thread.daemon = True
+        auditd_thread.start()
+        baseline, actual = initialize_graph(), initialize_graph()
+        state, init = 'baseline', datetime.datetime.now()
+        logging.info(state)
+        # event loop
         while True:
-            now = datetime.datetime.now()
-            # state transitions
-            if state == 'baseline' and (now - init).seconds > args.baseline:
-                state, init = 'collect', datetime.datetime.now()
-                logging.info(state)
-            elif state == 'collect' and (now - init).seconds > args.monitor:
-                state, init = 'detect', datetime.datetime.now()
-                logging.info(state)
-            elif state == 'detect':
-                state, init = 'collect', datetime.datetime.now()
-                logging.info(state)
-            # perform work
-            if state == 'baseline':
-                try:
-                    line = auditd_queue.get(block=False)
-                    auditd.collect(line, lambda x: record(baseline, x))
-                    auditd_queue.task_done()
-                except queue.Empty:
-                    time.sleep(wait_seconds)
-            elif state == 'collect':
-                try:
-                    line = auditd_queue.get(block=False)
-                    if line:
-                        auditd.collect(line, lambda x: record(actual, x))
+            try:
+                now = datetime.datetime.now()
+                # state transitions
+                if state == 'baseline' and (now - init).seconds > args.baseline:
+                    state, init = 'collect', datetime.datetime.now()
+                    logging.info(state)
+                elif state == 'collect' and (now - init).seconds > args.monitor:
+                    state, init = 'detect', datetime.datetime.now()
+                    logging.info(state)
+                elif state == 'detect':
+                    state, init = 'collect', datetime.datetime.now()
+                    logging.info(state)
+                # perform work
+                if state == 'baseline':
+                    try:
+                        line = auditd_queue.get(block=False)
+                        audit.collect(line, lambda x: record(baseline, x))
                         auditd_queue.task_done()
-                except queue.Empty:
-                    time.sleep(wait_seconds)
-            elif state == 'detect':
-                compare(baseline, actual)
-                actual = initialize_graph()
+                    except queue.Empty:
+                        time.sleep(wait_seconds)
+                elif state == 'collect':
+                    try:
+                        line = auditd_queue.get(block=False)
+                        if line:
+                            audit.collect(line, lambda x: record(actual, x))
+                            auditd_queue.task_done()
+                    except queue.Empty:
+                        time.sleep(wait_seconds)
+                elif state == 'detect':
+                    compare(baseline, actual)
+                    actual = initialize_graph()
+            except Exception:
+                logging.exception('event_loop')
+    except Exception:
+        logging.exception('main_func')
     except KeyboardInterrupt:
         sys.stdout.flush()
 

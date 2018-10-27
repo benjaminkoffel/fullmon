@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 import binascii
 import codecs
+import os
 import re
 import socket
 import struct
+import time
 
 def decode_saddr(saddr):
     c = codecs.decode(saddr, 'hex')
@@ -15,12 +17,6 @@ def decode_saddr(saddr):
         ip = socket.inet_ntoa(ip)
         return ip, port
     return None, None
-
-def decode_proctitle(proctitle):
-    try:
-        return binascii.a2b_hex(proctitle).decode('ascii').replace('\x00', ' ')
-    except binascii.Error:
-        return proctitle
 
 def to_netconn(messages):
     items = []
@@ -62,15 +58,13 @@ def to_filemod(messages):
 def to_process(messages):
     items = []
     syscall = [i for i in messages if i.get('type') == 'SYSCALL']
-    proctitle = [i for i in messages if i.get('type') == 'PROCTITLE']
-    if syscall and proctitle:
+    if syscall:
         items.append({
             'type': 'process',
             'ppid': syscall[0]['ppid'],
             'pid': syscall[0]['pid'],
             'uid': syscall[0]['uid'],
-            'exe': syscall[0]['exe'],
-            # 'cmd': decode_proctitle(proctitle[0]['proctitle'])
+            'exe': syscall[0]['exe']
         })
     return items
 
@@ -100,3 +94,37 @@ def collect(line, action):
         action(events)
         collect.buffer = []
     collect.buffer.append(values)
+
+def processes():
+    if not hasattr(processes, 'regex'):
+        processes.regex = re.compile('(\(([^\)]+)\)|([\S]+))')
+    items = []
+    try:
+        pids = [int(f) for f in os.listdir('/proc') if f.isdigit()]
+    except FileNotFoundError:
+        return items
+    for pid in pids:
+        try:
+            with open('/proc/{}/stat'.format(pid)) as f:
+                stat = processes.regex.findall(f.read())
+            ppid = int(stat[3][0])
+            exe = stat[1][1]
+        except FileNotFoundError:
+            continue
+        try:
+            with open('/proc/{}/uid_map'.format(pid)) as f:
+                uid = int(f.read().split()[0])
+        except FileNotFoundError:
+            continue
+        try:
+            exe = os.readlink('/proc/{}/exe'.format(pid))
+        except FileNotFoundError:
+            pass
+        items.append({
+            'type': 'process',
+            'ppid': ppid,
+            'pid': pid,
+            'uid': uid,
+            'exe': exe
+        })
+    return items
