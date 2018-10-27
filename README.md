@@ -22,22 +22,19 @@ python3 agent.py --auditd /var/log/audit/audit.log --baseline 60 --monitor 10
 ## Example
 
 ```
-$ sudo python3 agent.py --auditd /var/log/audit/audit.log --baseline 5 --monitor 10
-2018-10-26 06:33:57,684	root	INFO	baseline
-2018-10-26 06:34:03,725	root	INFO	collect
-2018-10-26 06:34:14,790	root	INFO	detect
-2018-10-26 06:34:14,916	root	INFO	collect
-2018-10-26 06:34:25,991	root	INFO	detect
-2018-10-26 06:34:25,993	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.192.176:0
-2018-10-26 06:34:25,997	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.192.145:0
-2018-10-26 06:34:25,998	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.192.221:0
-2018-10-26 06:34:25,999	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.193.171:0
-2018-10-26 06:34:26,000	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.192.176:0
-2018-10-26 06:34:26,006	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.192.145:0
-2018-10-26 06:34:26,007	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.192.221:0
-2018-10-26 06:34:26,010	root	INFO	ANOMALY DETECTED: proc:0:/usr/bin/traceroute.db->host:104.36.193.171:0
-2018-10-26 06:34:26,105	root	INFO	collect
-2018-10-26 06:34:37,192	root	INFO	detect
+$ python3 agent.py --auditd /var/log/audit/audit.log --baseline 10 --monitor 10
+2018-10-27 18:49:39,807	INFO	baseline
+2018-10-27 18:49:50,821	INFO	collect
+2018-10-27 18:50:01,886	INFO	detect
+2018-10-27 18:50:01,949	INFO	collect
+2018-10-27 18:50:12,959	INFO	detect
+2018-10-27 18:50:13,045	INFO	collect
+2018-10-27 18:50:24,057	INFO	detect
+2018-10-27 18:50:24,066	WARNING	proc:1000:/usr/bin/curl->host:67.195.231.10:80
+2018-10-27 18:50:24,066	WARNING	proc:1000:/usr/bin/curl->host:188.125.72.165:80
+2018-10-27 18:50:24,066	WARNING	proc:1000:/usr/bin/curl->host:124.108.115.87:80
+2018-10-27 18:50:24,067	WARNING	proc:1000:/usr/bin/curl->host:66.218.87.12:80
+2018-10-27 18:50:24,113	INFO	collect
 ```
 
 ## References
