@@ -97,7 +97,7 @@ def collect(line, action):
 
 def processes():
     if not hasattr(processes, 'regex'):
-        processes.regex = re.compile('(\(([^\)]+)\)|([\S]+))')
+        processes.regex = re.compile('(\(\(([^\)]+)\)\)|\(([^\)]+)\)|([\S]+))')
     items = []
     try:
         pids = [int(f) for f in os.listdir('/proc') if f.isdigit()]
