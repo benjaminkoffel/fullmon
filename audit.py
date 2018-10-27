@@ -108,7 +108,7 @@ def processes():
             with open('/proc/{}/stat'.format(pid)) as f:
                 stat = processes.regex.findall(f.read())
             ppid = int(stat[3][0])
-            exe = stat[1][1]
+            exe = stat[1][0].strip('()')
         except FileNotFoundError:
             continue
         try:
