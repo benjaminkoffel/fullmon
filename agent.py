@@ -14,11 +14,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s\t%(levelname)s\t%(me
 def compare(baseline, actual):
     paths = actual.list_paths()
     for path in paths:
-        pruned = [p for p in path if p.attributes['id'] != 'proc::']
-        if len(pruned) > 1:
+        if path[0].attributes['id'] == 'proc::':
+            continue
+        if len(path) > 1:
             logging.debug('+compare')
-            if not baseline.has_path(pruned, 'id'):
-                logging.warning('->'.join(v.attributes['id'] for v in pruned))
+            if not baseline.has_path(path, 'id'):
+                logging.warning('->'.join(v.attributes['id'] for v in path))
 
 def record(graph, events):
     for event in events:
