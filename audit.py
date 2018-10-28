@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import binascii
 import codecs
+import difflib
 import os
 import re
 import socket
@@ -128,3 +129,25 @@ def processes():
             'exe': exe
         })
     return items
+
+def identify_temps(filenames, min_similarity, min_found):
+    def find_all(string, char):
+        return [i for i, c in enumerate(string) if c == char]
+    P = set()
+    F = sorted(set(filenames))
+    while F:
+        f = F.pop()
+        if '/' in f:
+            S = [i for i in F if len(i) == len(f) and find_all(i, '/') == find_all(f, '/')]
+            for s in S:
+                m = difflib.SequenceMatcher(None, f, s).ratio()
+                if m > min_similarity:
+                    fp, sp = f.split('/'), s.split('/')
+                    p = '\/'.join(re.escape(sp[i]) if sp[i] == fp[i] else '[^\/]+' for i in range(len(fp)))
+                    L = [i for i in S if re.match(p, i)]
+                    if len(L) > min_found:
+                        for l in L:
+                            F.remove(l)
+                        P.add(p)
+                        break
+    return P
