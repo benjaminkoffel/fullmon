@@ -20,9 +20,8 @@ def compare_graphs(baseline, actual, ignore):
         if len(path) > 1:
             if path[0].attributes['id'] == 'proc::':
                 continue
-            for i in ignore:
-                if i.match(path[-1].attributes['id']):
-                    continue
+            if any(i for i in ignore if i.match(path[-1].attributes['id'])):
+                continue
             logging.debug('+compare')
             if not baseline.has_path(path, 'id'):
                 anomalies.append(path)

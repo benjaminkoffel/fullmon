@@ -138,7 +138,7 @@ def identify_temps(filenames, min_similarity, min_found):
     while F:
         f = F.pop()
         if '/' in f:
-            S = [i for i in F if len(i) == len(f) and find_all(i, '/') == find_all(f, '/')]
+            S = [i for i in F if find_all(i, '/') == find_all(f, '/')]
             for s in S:
                 m = difflib.SequenceMatcher(None, f, s).ratio()
                 if m > min_similarity:
