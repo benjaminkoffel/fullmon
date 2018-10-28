@@ -75,7 +75,7 @@ class graph:
             return set()
         return set(self.indexes[attribute][value])
 
-    def list_paths(self, condition=lambda x: True):
+    def list_paths(self):
         a = []
         q = collections.deque([(i, []) for i in self.vertices])
         while q:
