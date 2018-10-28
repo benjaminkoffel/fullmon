@@ -63,7 +63,7 @@ def ignore_patterns(graph, min_similarity, min_found):
     patterns = []
     filenames = [v.attributes['id'][12:] for v in graph.vertices if v.attributes['id'].startswith('file:')]
     for p in audit.identify_temps(filenames, min_similarity, min_found):
-        logging.debug('+ignore %s', p)
+        logging.info('ignore %s', p)
         patterns.append(re.compile('^file:[^:]+:{}$'.format(p)))
     return patterns
 
