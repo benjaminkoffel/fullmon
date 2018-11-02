@@ -11,7 +11,7 @@ import time
 import audit
 import graphdb
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s\t%(levelname)s\t%(message)s', stream=sys.stdout)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s\t%(levelname)s\t%(message)s', stream=sys.stdout)
 
 def compare_graphs(baseline, actual, ignore):
     anomalies = []
