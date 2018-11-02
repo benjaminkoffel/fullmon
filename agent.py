@@ -39,11 +39,9 @@ def record_events(graph, events):
                 B = graph.find_vertices('process.pid', event['pid'])
                 if not B:
                     B = [graph.add_vertex({
-                        'id': 'proc:{}:{}'.format(event['uid'], event['exe']),
                         'process.pid': event['pid']})]
                 for b in B:
-                    b.attributes['uid'] = event['uid']
-                    b.attributes['exe'] = event['exe']
+                    b.attributes['id'] = 'proc:{}:{}'.format(event['uid'], event['exe'])
                     graph.add_edge(a, b, {})
                     logging.debug('+proc %s %s %s', event['pid'], event['uid'], event['exe'])
         if event['type'] == 'filemod':
@@ -114,9 +112,9 @@ def main():
         auditd_thread = threading.Thread(target=tail_file, args=(args.auditd, 0.1, lambda x: auditd_queue.put(x)))
         auditd_thread.daemon = True
         auditd_thread.start()
-        baseline, actual = initialize_graph(), initialize_graph()
-        state, init = 'baseline', datetime.datetime.now()
         ignore = []
+        baseline, actual = initialize_graph(), graphdb.graph()
+        state, init = 'baseline', datetime.datetime.now()
         logging.info(state)
         # event loop
         while True:
