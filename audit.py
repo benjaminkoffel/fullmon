@@ -8,6 +8,10 @@ import socket
 import struct
 import time
 
+re_auditd = re.compile('(?P<key>[\S]+)=(?P<value>"([^"]+)"|([\S]+))')
+re_stat = re.compile('(\(\(([^\)]+)\)\)|\(([^\)]+)\)|([\S]+))')
+re_container = re.compile('docker-containerd-shim.*([a-f0-9]{12})[a-f0-9]{52}.*')
+
 def decode_saddr(saddr):
     c = codecs.decode(saddr, 'hex')
     p, i = struct.unpack_from("!H4s", c, offset=2)
@@ -19,11 +23,22 @@ def decode_saddr(saddr):
         return ip, port
     return None, None
 
+def decode_proctitle(proctitle):
+    try:
+        return binascii.a2b_hex(proctitle).decode('utf-8').replace('\x00', ' ')
+    except binascii.Error:
+        return proctitle
+
+def extract_container(cmd):
+    m = re_container.match(cmd)
+    return m.group(1) if m else ''
+
 def to_netconn(messages):
     items = []
     syscall = [i for i in messages if i.get('type') == 'SYSCALL']
+    proctitle = [i for i in messages if i.get('type') == 'PROCTITLE']
     sockaddr = [i for i in messages if i.get('type') == 'SOCKADDR']
-    if syscall and sockaddr:
+    if syscall and proctitle and sockaddr:
         ip, port = decode_saddr(sockaddr[0]['saddr'])
         items.append({
             'type': 'netconn',
@@ -31,6 +46,7 @@ def to_netconn(messages):
             'pid': syscall[0]['pid'],
             'uid': syscall[0]['uid'],
             'exe': syscall[0]['exe'],
+            'con': extract_container(decode_proctitle(proctitle[0]['proctitle'])),
             'ip': ip,
             'port': port
         })
@@ -39,8 +55,9 @@ def to_netconn(messages):
 def to_filemod(messages):
     items = []
     syscall = [i for i in messages if i.get('type') == 'SYSCALL']
+    proctitle = [i for i in messages if i.get('type') == 'PROCTITLE']
     paths = [i for i in messages if i.get('type') == 'PATH']
-    if syscall and paths:
+    if syscall and proctitle and paths:
         values = []
         for path in paths:
             name, nametype = path.get('name'), path.get('nametype')
@@ -51,6 +68,7 @@ def to_filemod(messages):
                     'pid': syscall[0]['pid'],
                     'uid': syscall[0]['uid'],
                     'exe': syscall[0]['exe'],
+                    'con': extract_container(decode_proctitle(proctitle[0]['proctitle'])),
                     'path': name,
                     'action': nametype
                 })  
@@ -59,21 +77,21 @@ def to_filemod(messages):
 def to_process(messages):
     items = []
     syscall = [i for i in messages if i.get('type') == 'SYSCALL']
-    if syscall:
+    proctitle = [i for i in messages if i.get('type') == 'PROCTITLE']
+    if syscall and proctitle:
         items.append({
             'type': 'process',
             'ppid': syscall[0]['ppid'],
             'pid': syscall[0]['pid'],
             'uid': syscall[0]['uid'],
-            'exe': syscall[0]['exe']
+            'exe': syscall[0]['exe'],
+            'con': extract_container(decode_proctitle(proctitle[0]['proctitle']))
         })
     return items
 
 def parse(line):
-    if not hasattr(parse, 'regex'):
-        parse.regex = re.compile('(?P<key>[\S]+)=(?P<value>"([^"]+)"|([\S]+))')
     values = {}
-    for match in parse.regex.finditer(line):
+    for match in re_auditd.finditer(line):
         if match:
             values[match.group('key')] = match.group('value').strip('"')
     return values
@@ -97,8 +115,6 @@ def collect(line, action):
     collect.buffer.append(values)
 
 def processes():
-    if not hasattr(processes, 'regex'):
-        processes.regex = re.compile('(\(\(([^\)]+)\)\)|\(([^\)]+)\)|([\S]+))')
     items = []
     try:
         pids = [int(f) for f in os.listdir('/proc') if f.isdigit()]
@@ -107,26 +123,29 @@ def processes():
     for pid in pids:
         try:
             with open('/proc/{}/stat'.format(pid)) as f:
-                stat = processes.regex.findall(f.read())
-            ppid = int(stat[3][0])
-            exe = stat[1][0].strip('()').split('/')[0]
-        except FileNotFoundError:
-            continue
-        try:
+                stat = f.read()
             with open('/proc/{}/uid_map'.format(pid)) as f:
-                uid = int(f.read().split()[0])
+                uid_map = f.read()
+            with open('/proc/{}/cmdline'.format(pid)) as f:
+                cmdline = f.read()
         except FileNotFoundError:
-            continue
+            continue # must exist
         try:
             exe = os.readlink('/proc/{}/exe'.format(pid))
         except FileNotFoundError:
-            pass
+            pass # may not exist
+        stats = processes.regex.findall(stat)
+        ppid = int(stats[3][0])
+        com = stats[1][0].strip('()').split('/')[0]
+        uid = int(uid_map.split()[0])
+        con = extract_container(cmdline)
         items.append({
             'type': 'process',
             'ppid': ppid,
             'pid': pid,
             'uid': uid,
-            'exe': exe
+            'exe': exe if exe else com,
+            'con': con
         })
     return items
 

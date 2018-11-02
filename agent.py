@@ -18,7 +18,7 @@ def compare_graphs(baseline, actual, ignore):
     paths = actual.list_paths()
     for path in paths:
         if len(path) > 1:
-            if path[0].attributes['id'] == 'proc::':
+            if path[0].attributes['id'] == 'proc:::':
                 continue
             if any(i for i in ignore if i.match(path[-1].attributes['id'])):
                 continue
@@ -33,7 +33,7 @@ def record_events(graph, events):
             A = graph.find_vertices('process.pid', event['ppid'])
             if not A:
                 A = [graph.add_vertex({
-                    'id': 'proc::',
+                    'id': 'proc:::',
                     'process.pid': event['ppid']})]
             for a in A:
                 B = graph.find_vertices('process.pid', event['pid'])
@@ -41,7 +41,7 @@ def record_events(graph, events):
                     B = [graph.add_vertex({
                         'process.pid': event['pid']})]
                 for b in B:
-                    b.attributes['id'] = 'proc:{}:{}'.format(event['uid'], event['exe'])
+                    b.attributes['id'] = 'proc:{}:{}:{}'.format(event['con'], event['uid'], event['exe'])
                     graph.add_edge(a, b, {})
                     logging.debug('+proc %s %s %s', event['pid'], event['uid'], event['exe'])
         if event['type'] == 'filemod':
