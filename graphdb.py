@@ -84,8 +84,8 @@ class graph:
             if not n:
                 a.append(p + [v])
             else:
-                for n in n:
-                    q.append((n, p + [v]))
+                for x in n:
+                    q.append((x, p + [v]))
         return a
 
     def has_path(self, path, attribute):
