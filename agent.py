@@ -140,6 +140,8 @@ def main():
                     monitor_queue(baseline, auditd_queue, 0.1)
                 elif state == 'prepare':
                     ignore = ignore_patterns(baseline, 0.8, 5)
+                    for path in baseline.list_paths():
+                        logging.debug('->'.join(v.attributes['id'] for v in path))
                     actual = initialize_graph()
                 elif state == 'collect':
                     monitor_queue(actual, auditd_queue, 0.1)
