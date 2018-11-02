@@ -77,12 +77,15 @@ class graph:
 
     def list_paths(self):
         a = []
-        q = collections.deque([(i, []) for i in self.vertices])
+        q = collections.deque([(i, []) for i in self.vertices if not i.edges_to])
         while q:
             (v, p) = q.popleft()
-            a.append(p + [v])
-            for n in set(e.vertex_to for e in v.edges_from) - set(p):
-                q.append((n, p + [v]))
+            n = set(e.vertex_to for e in v.edges_from) - set(p)
+            if not n:
+                a.append(p + [v])
+            else:
+                for n in n:
+                    q.append((n, p + [v]))
         return a
 
     def has_path(self, path, attribute):
