@@ -134,7 +134,7 @@ def processes():
             exe = os.readlink('/proc/{}/exe'.format(pid))
         except FileNotFoundError:
             pass # may not exist
-        stats = processes.regex.findall(stat)
+        stats = re_stat.findall(stat)
         ppid = int(stats[3][0])
         com = stats[1][0].strip('()').split('/')[0]
         uid = int(uid_map.split()[0])
