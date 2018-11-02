@@ -11,19 +11,19 @@ import time
 import audit
 import graphdb
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s\t%(levelname)s\t%(message)s', stream=sys.stdout)
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s\t%(levelname)s\t%(message)s', stream=sys.stdout)
 
 def compare_graphs(baseline, actual, ignore):
     anomalies = []
     paths = actual.list_paths()
     for path in paths:
         if len(path) > 1:
-            if path[0].attributes['id'] == 'proc:::':
-                continue
-            if any(i for i in ignore if i.match(path[-1].attributes['id'])):
-                continue
-            logging.debug('+compare')
-            if not baseline.has_path(path, 'id'):
+            logging.debug('+compare %s', '->'.join(v.attributes['id'] for v in path))
+            while path and path[0].attributes['id'] == 'proc:::':
+                path.pop(0)
+            while path and any(i for i in ignore if i.match(path[-1].attributes['id'])):
+                path.pop()
+            if path and not baseline.has_path(path, 'id'):
                 anomalies.append(path)
     return anomalies
 
