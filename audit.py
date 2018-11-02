@@ -133,10 +133,9 @@ def processes():
         try:
             exe = os.readlink('/proc/{}/exe'.format(pid))
         except FileNotFoundError:
-            pass # may not exist
+            exe = stats[1][0].strip('()').split('/')[0]
         stats = re_stat.findall(stat)
         ppid = int(stats[3][0])
-        com = stats[1][0].strip('()').split('/')[0]
         uid = int(uid_map.split()[0])
         con = extract_container(cmdline)
         items.append({
@@ -144,7 +143,7 @@ def processes():
             'ppid': ppid,
             'pid': pid,
             'uid': uid,
-            'exe': exe if exe else com,
+            'exe': exe,
             'con': con
         })
     return items
