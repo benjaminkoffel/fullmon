@@ -86,7 +86,7 @@ class graph:
         return a
 
     def has_path(self, path, attribute):
-        q = collections.deque([(i, []) for i in self.find_vertices(attribute, path[0].attributes[attribute])])
+        q = collections.deque([(i, []) for i in self.vertices])
         while q:
             (v, p) = q.popleft()
             if v.attributes[attribute] == path[len(p)].attributes[attribute]:
@@ -95,4 +95,3 @@ class graph:
                 for n in set(e.vertex_to for e in v.edges_from) - set(p):
                     q.append((n, p + [v]))
         return False
-        
