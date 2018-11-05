@@ -137,3 +137,16 @@ class graph:
             for n in set([e.vertex_to for e in v.edges_from]) - set(p):
                 q.append((n, p + [v], s))
         return g
+
+    def merge_path(self, path, attribute):
+        f = None
+        q = collections.deque(path)
+        while q:
+            v = q.popleft()
+            S = self.find_vertices(attribute, v.attributes[attribute])
+            if not S:
+                S = set([self.add_vertex({attribute: v.attributes[attribute]})])
+            s = S.pop()
+            if f and not any(e for e in f.edges_from if e.vertex_to == s):
+                self.add_edge(f, s, {})
+            f = s

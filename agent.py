@@ -63,7 +63,7 @@ def ignore_patterns(graph, min_similarity, min_found):
     patterns = []
     filenames = [v.attributes['id'][12:] for v in graph.vertices if v.attributes['id'].startswith('file:')]
     for p in audit.identify_temps(filenames, min_similarity, min_found):
-        logging.info('ignore %s', p)
+        logging.debug('+ignore %s', p)
         patterns.append(re.compile('^file:[^:]+:{}$'.format(p)))
     return patterns
 
@@ -108,6 +108,7 @@ def main():
         parser.add_argument('--auditd', help='Path to auditd log file.', required=True)
         parser.add_argument('--baseline', type=int, help='Time in seconds to generate baseline.', required=True)
         parser.add_argument('--monitor', type=int, help='Time in seconds before each baseline comparison.', required=True)
+        parser.add_argument('--rebase', action='store_true', help='Update baseline with detected behaviour anomalies.')
         args = parser.parse_args()
         # initialize state
         auditd_queue = queue.Queue()
@@ -124,6 +125,9 @@ def main():
                 now = datetime.datetime.now()
                 # state transitions
                 if state == 'baseline' and (now - init).seconds > args.baseline:
+                    state, init = 'normalize', datetime.datetime.now()
+                    logging.info(state)
+                elif state == 'normalize':
                     state, init = 'prepare', datetime.datetime.now()
                     logging.info(state)
                 elif state == 'prepare':
@@ -133,21 +137,27 @@ def main():
                     state, init = 'detect', datetime.datetime.now()
                     logging.info(state)
                 elif state == 'detect':
-                    state, init = 'collect', datetime.datetime.now()
+                    state, init = 'prepare', datetime.datetime.now()
                     logging.info(state)
                 # perform work
                 if state == 'baseline':
                     monitor_queue(baseline, auditd_queue, 0.1)
-                elif state == 'prepare':
+                elif state == 'normalize':
                     baseline = baseline.compress('id')
                     ignore = ignore_patterns(baseline, 0.6, 3)
+                elif state == 'prepare':
                     actual = initialize_graph()
                 elif state == 'collect':
                     monitor_queue(actual, auditd_queue, 0.1)
                 elif state == 'detect':
-                    for path in compare_graphs(baseline, actual, ignore):
+                    anomalies = compare_graphs(baseline, actual, ignore)
+                    for path in anomalies:
                         logging.warning('->'.join(v.attributes['id'] for v in path))
-                    actual = initialize_graph()
+                    if anomalies and args.rebase:
+                        logging.debug('+rebase')
+                        for path in anomalies:
+                            baseline.merge_path(path, 'id')
+                        ignore = ignore_patterns(baseline, 0.6, 3)
             except Exception:
                 logging.exception('event_loop')
     except Exception:
