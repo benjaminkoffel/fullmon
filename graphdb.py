@@ -63,6 +63,19 @@ class graph:
                     self.indexes[attribute][value].add(v)
         return v
 
+    def update_attributes(self, vertex, attributes):
+        for attribute in self.indexes.keys():
+            if attribute in vertex.attributes:
+                self.indexes[attribute][vertex.attributes[attribute]].remove(vertex)
+        vertex.attributes = attributes
+        for attribute in self.indexes.keys():
+            if attribute in vertex.attributes:
+                value = vertex.attributes[attribute]
+                if value not in self.indexes[attribute]:
+                    self.indexes[attribute][value] = set([vertex])
+                else:
+                    self.indexes[attribute][value].add(vertex)
+
     def add_edge(self, vertex_from, vertex_to, attributes):
         e = edge(vertex_from, vertex_to, attributes)
         self.edges.add(e)
@@ -75,7 +88,7 @@ class graph:
             return set()
         return set(self.indexes[attribute][value])
 
-    def list_paths(self):
+    def list_leaf_paths(self):
         a = []
         q = collections.deque([(i, []) for i in self.vertices if not i.edges_to])
         while q:
@@ -88,6 +101,16 @@ class graph:
                     q.append((x, p + [v]))
         return a
 
+    def list_paths(self):
+        a = []
+        q = collections.deque([(i, []) for i in self.vertices])
+        while q:
+            (v, p) = q.popleft()
+            a.append(p + [v])
+            for n in set(e.vertex_to for e in v.edges_from) - set(p):
+                q.append((n, p + [v]))
+        return a
+
     def has_path(self, path, attribute):
         q = collections.deque([(i, []) for i in self.vertices])
         while q:
@@ -95,6 +118,22 @@ class graph:
             if v.attributes[attribute] == path[len(p)].attributes[attribute]:
                 if len(p) == len(path) - 1:
                     return True
-                for n in set(e.vertex_to for e in v.edges_from) - set(p):
+                for n in set(e.vertex_to for e in v.edges_from):
                     q.append((n, p + [v]))
         return False
+
+    def compress(self, attribute):
+        g = graph()
+        g.add_index(attribute)
+        q = collections.deque([(i, [], None) for i in self.vertices])
+        while q:
+            (v, p, f) = q.popleft()
+            S = g.find_vertices(attribute, v.attributes[attribute])
+            if not S:
+                S = set([g.add_vertex({attribute: v.attributes[attribute]})])
+            s = S.pop()
+            if f and not any(e for e in f.edges_from if e.vertex_to == s):
+                g.add_edge(f, s, {})
+            for n in set([e.vertex_to for e in v.edges_from]) - set(p):
+                q.append((n, p + [v], s))
+        return g

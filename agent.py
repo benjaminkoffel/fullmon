@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s\t%(levelname)s\t%(me
 
 def compare_graphs(baseline, actual, ignore):
     anomalies = []
-    paths = actual.list_paths()
+    paths = actual.list_leaf_paths()
     for path in paths:
         if len(path) > 1:
             logging.debug('+compare %s', '->'.join(v.attributes['id'] for v in path))
@@ -41,7 +41,9 @@ def record_events(graph, events):
                     B = [graph.add_vertex({
                         'process.pid': event['pid']})]
                 for b in B:
-                    b.attributes['id'] = 'proc:{}:{}:{}'.format(event['con'], event['uid'], event['exe'])
+                    graph.update_attributes(b, {
+                        'id': 'proc:{}:{}:{}'.format(event['con'], event['uid'], event['exe']),
+                        'process.pid': event['pid']})
                     graph.add_edge(a, b, {})
                     logging.debug('+proc %s %s %s', event['pid'], event['uid'], event['exe'])
         if event['type'] == 'filemod':
@@ -137,9 +139,8 @@ def main():
                 if state == 'baseline':
                     monitor_queue(baseline, auditd_queue, 0.1)
                 elif state == 'prepare':
-                    ignore = ignore_patterns(baseline, 0.8, 5)
-                    for path in baseline.list_paths():
-                        logging.debug('->'.join(v.attributes['id'] for v in path))
+                    baseline = baseline.compress('id')
+                    ignore = ignore_patterns(baseline, 0.6, 3)
                     actual = initialize_graph()
                 elif state == 'collect':
                     monitor_queue(actual, auditd_queue, 0.1)
