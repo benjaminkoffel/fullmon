@@ -1,0 +1,98 @@
+import unittest
+import graphdb
+
+class TestGraphDB(unittest.TestCase):
+
+    def test_add_vertex_ok(self):
+        g = graphdb.graph()
+        v = g.add_vertex({'id': '123'})
+        self.assertEqual('123', v.attributes['id'])
+        
+    def test_add_edge_ok(self):
+        g = graphdb.graph()
+        a = g.add_vertex({})
+        b = g.add_vertex({})
+        e = g.add_edge(a, b, {'id': '123'})
+        self.assertEqual('123', e.attributes['id'])
+        self.assertEqual(a, e.vertex_from)
+        self.assertEqual(b, e.vertex_to)
+        self.assertEqual(set([e]), a.edges_from)
+        self.assertEqual(set([e]), b.edges_to)
+
+    def test_find_vertices_ok(self):
+        g = graphdb.graph()
+        g.add_index('id')
+        a = g.add_vertex({'id': '123'})
+        s = g.find_vertices('id', '123')
+        self.assertEqual(set([a]), s)
+
+    def test_update_attributes_ok(self):
+        g = graphdb.graph()
+        g.add_index('id')
+        a = g.add_vertex({'id': '123'})
+        g.update_attributes(a, {'id': '234'})
+        s = g.find_vertices('id', '234')
+        self.assertEqual(set([a]), s)
+    
+    def test_list_leaf_paths_ok(self):
+        g = graphdb.graph()
+        a = g.add_vertex({})
+        b = g.add_vertex({})
+        c = g.add_vertex({})
+        g.add_edge(a, b, {})
+        g.add_edge(a, c, {})
+        g.add_edge(b, c, {})
+        p = g.list_leaf_paths()
+        self.assertEqual(2, len(p))
+        self.assertIn([a, c], p)
+        self.assertIn([a, b, c], p)
+
+    def test_list_paths_ok(self):
+        g = graphdb.graph()
+        a = g.add_vertex({})
+        b = g.add_vertex({})
+        c = g.add_vertex({})
+        g.add_edge(a, b, {})
+        g.add_edge(a, c, {})
+        g.add_edge(b, c, {})
+        p = g.list_paths()
+        self.assertEqual(7, len(p))
+        self.assertIn([a], p)
+        self.assertIn([b], p)
+        self.assertIn([c], p)
+        self.assertIn([a, b], p)
+        self.assertIn([a, c], p)
+        self.assertIn([b, c], p)
+        self.assertIn([a, b, c], p)
+
+    def test_compress_ok(self):
+        g = graphdb.graph()
+        g.add_index('id')
+        a = g.add_vertex({'id': '1'})
+        b = g.add_vertex({'id': '1'})
+        c = g.add_vertex({'id': '2'})
+        g.add_edge(a, b, {})
+        g.add_edge(b, c, {})
+        g2 = g.compress('id')
+        self.assertEqual(2, len(g2.vertices))
+        self.assertEqual(2, len(g2.edges))
+        self.assertEqual(2, len(g2.indexes['id']))
+
+    def test_compare_ok(self):
+        g = graphdb.graph()
+        g.add_index('id')
+        a = g.add_vertex({'id': '1'})
+        b = g.add_vertex({'id': '2'})
+        g.add_edge(a, b, {})
+        g2 = graphdb.graph()
+        g2.add_index('id')
+        c = g2.add_vertex({'id': '1'})
+        d = g2.add_vertex({'id': '3'})
+        g2.add_edge(c, d, {})
+        p = g.compare(g2, 'id')
+        self.assertEqual(2, len(p))
+        self.assertIn([d], p)
+        self.assertIn([c, d], p)
+        
+if __name__ == '__main__':
+    unittest.main()
