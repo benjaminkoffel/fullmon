@@ -150,3 +150,16 @@ class graph:
             if f and not any(e for e in f.edges_from if e.vertex_to == s):
                 self.add_edge(f, s, {})
             f = s
+
+    def compare(self, other, attribute):
+        a = []
+        q = collections.deque([(i, []) for i in other.vertices])
+        while q:
+            (v, p) = q.popleft()
+            S = self.find_vertices(attribute, v.attributes[attribute])
+            if not S or (p and not any(e for e in S.pop().edges_to if e.vertex_from.attributes[attribute] == p[-1].attributes[attribute])):
+                a.append(p + [v])
+            else:
+                for n in set(e.vertex_to for e in v.edges_from) - set(p):
+                    q.append((n, p + [v]))
+        return a
