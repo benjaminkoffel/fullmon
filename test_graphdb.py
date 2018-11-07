@@ -3,6 +3,11 @@ import graphdb
 
 class TestGraphDB(unittest.TestCase):
 
+    def test_add_index_ok(self):
+        g = graphdb.graph()
+        i = g.add_index('id')
+        self.assertEqual({}, i)
+
     def test_add_vertex_ok(self):
         g = graphdb.graph()
         v = g.add_vertex({'id': '123'})
@@ -19,13 +24,6 @@ class TestGraphDB(unittest.TestCase):
         self.assertEqual(set([e]), a.edges_from)
         self.assertEqual(set([e]), b.edges_to)
 
-    def test_find_vertices_ok(self):
-        g = graphdb.graph()
-        g.add_index('id')
-        a = g.add_vertex({'id': '123'})
-        s = g.find_vertices('id', '123')
-        self.assertEqual(set([a]), s)
-
     def test_update_attributes_ok(self):
         g = graphdb.graph()
         g.add_index('id')
@@ -33,37 +31,13 @@ class TestGraphDB(unittest.TestCase):
         g.update_attributes(a, {'id': '234'})
         s = g.find_vertices('id', '234')
         self.assertEqual(set([a]), s)
-    
-    def test_list_leaf_paths_ok(self):
-        g = graphdb.graph()
-        a = g.add_vertex({})
-        b = g.add_vertex({})
-        c = g.add_vertex({})
-        g.add_edge(a, b, {})
-        g.add_edge(a, c, {})
-        g.add_edge(b, c, {})
-        p = g.list_leaf_paths()
-        self.assertEqual(2, len(p))
-        self.assertIn([a, c], p)
-        self.assertIn([a, b, c], p)
 
-    def test_list_paths_ok(self):
+    def test_find_vertices_ok(self):
         g = graphdb.graph()
-        a = g.add_vertex({})
-        b = g.add_vertex({})
-        c = g.add_vertex({})
-        g.add_edge(a, b, {})
-        g.add_edge(a, c, {})
-        g.add_edge(b, c, {})
-        p = g.list_paths()
-        self.assertEqual(7, len(p))
-        self.assertIn([a], p)
-        self.assertIn([b], p)
-        self.assertIn([c], p)
-        self.assertIn([a, b], p)
-        self.assertIn([a, c], p)
-        self.assertIn([b, c], p)
-        self.assertIn([a, b, c], p)
+        g.add_index('id')
+        a = g.add_vertex({'id': '123'})
+        s = g.find_vertices('id', '123')
+        self.assertEqual(set([a]), s)
 
     def test_compress_ok(self):
         g = graphdb.graph()
@@ -77,6 +51,19 @@ class TestGraphDB(unittest.TestCase):
         self.assertEqual(2, len(g2.vertices))
         self.assertEqual(2, len(g2.edges))
         self.assertEqual(2, len(g2.indexes['id']))
+
+    def test_merge_path_ok(self):
+        g = graphdb.graph()
+        g.add_index('id')
+        a = g.add_vertex({'id': '1'})
+        b = g.add_vertex({'id': '2'})
+        g.add_edge(a, b, {})
+        c = graphdb.vertex({'id': '2'})
+        d = graphdb.vertex({'id': '3'})
+        g.merge_path([c, d], 'id')
+        self.assertEqual(3, len(g.vertices))
+        self.assertEqual(2, len(g.edges))
+        self.assertEqual(3, len(g.indexes['id']))
 
     def test_compare_ok(self):
         g = graphdb.graph()
