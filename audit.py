@@ -6,7 +6,6 @@ import os
 import re
 import socket
 import struct
-import time
 
 re_auditd = re.compile('(?P<key>[\S]+)=(?P<value>"([^"]+)"|([\S]+))')
 re_stat = re.compile('(\(\(([^\)]+)\)\)|\(([^\)]+)\)|([\S]+))')
@@ -41,7 +40,7 @@ def process(messages):
             'type': 'process',
             'ppid': syscall[0]['ppid'],
             'pid': syscall[0]['pid'],
-            'uid': syscall[0]['uid'],
+            'uid': syscall[0]['auid'],
             'exe': syscall[0]['comm'],
             'con': extract_container(decode_proctitle(proctitle[0]['proctitle']))}
 
