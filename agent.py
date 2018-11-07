@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import argparse
 import datetime
-import difflib
 import logging
 import queue
 import re
@@ -13,61 +12,44 @@ import graphdb
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s\t%(levelname)s\t%(message)s', stream=sys.stdout)
 
-def compare_graphs(baseline, actual, ignore):
-    anomalies = []
-    paths = actual.list_leaf_paths()
-    for path in paths:
-        if len(path) > 1:
-            logging.debug('+compare %s', '->'.join(v.attributes['id'] for v in path))
-            while path and path[0].attributes['id'] == 'proc:::':
-                path.pop(0)
-            while path and any(i for i in ignore if i.match(path[-1].attributes['id'])):
-                path.pop()
-            if path and not baseline.has_path(path, 'id'):
-                anomalies.append(path)
-    return anomalies
-
 def record_events(graph, events):
     for event in events:
         if event['type'] in ['process', 'filemod', 'netconn']:
-            A = graph.find_vertices('process.pid', event['ppid'])
+            A = graph.find_vertices('pid', event['ppid'])
             if not A:
-                A = [graph.add_vertex({
-                    'id': 'proc:::',
-                    'process.pid': event['ppid']})]
+                A = [graph.add_vertex({'pid': event['ppid'], 'id': 'proc:::'})]
             for a in A:
-                B = graph.find_vertices('process.pid', event['pid'])
+                id = 'proc:{}:{}:{}'.format(event['con'], event['uid'], event['exe'])
+                B = graph.find_vertices('pid', event['pid'])
                 if not B:
-                    B = [graph.add_vertex({
-                        'process.pid': event['pid']})]
+                    B = [graph.add_vertex({'pid': event['pid'], 'id': id})]
                 for b in B:
-                    graph.update_attributes(b, {
-                        'id': 'proc:{}:{}:{}'.format(event['con'], event['uid'], event['exe']),
-                        'process.pid': event['pid']})
+                    if b.attributes['id'] != id:
+                        graph.update_attributes(b, {'pid': event['pid'], 'id': id})
                     graph.add_edge(a, b, {})
-                    logging.debug('+proc %s %s %s', event['pid'], event['uid'], event['exe'])
+                    logging.debug('+%s', id)
         if event['type'] == 'filemod':
-            for a in graph.find_vertices('process.pid', event['pid']):
-                b = graph.add_vertex({
-                    'id': 'file:{}:{}'.format(event['action'], event['path'])})
+            for a in graph.find_vertices('pid', event['pid']):
+                id = 'file:{}:{}'.format(event['action'], event['path'])
+                b = graph.add_vertex({'id': id})
                 graph.add_edge(a, b, {})
-                logging.debug('+file %s %s %s', event['pid'], event['action'], event['path'])
+                logging.debug('+%s', id)
         if event['type'] == 'netconn':
-            for a in graph.find_vertices('process.pid', event['pid']):
-                b = graph.add_vertex({
-                    'id': 'host:{}:{}'.format(event['ip'], event['port'])})
+            for a in graph.find_vertices('pid', event['pid']):
+                id = 'host:{}:{}'.format(event['ip'], event['port'])
+                b = graph.add_vertex({'id': id})
                 graph.add_edge(a, b, {})
-                logging.debug('+host %s %s %s', event['pid'], event['ip'], event['port'])
+                logging.debug('+%s', id)
 
 def ignore_patterns(graph, min_similarity, min_found):
-    patterns = []
+    patterns = set()
     filenames = [v.attributes['id'][12:] for v in graph.vertices if v.attributes['id'].startswith('file:')]
     for p in audit.identify_temps(filenames, min_similarity, min_found):
-        logging.debug('+ignore %s', p)
-        patterns.append(re.compile('^file:[^:]+:{}$'.format(p)))
+        logging.info('+ignore %s', p)
+        patterns.add(re.compile('^file:[^:]+:{}$'.format(p)))
     return patterns
 
-def monitor_queue(graph, que, wait):
+def monitor_queue(que, wait, graph):
     try:
         line = que.get(block=False)
         audit.collect(line, lambda x: record_events(graph, x))
@@ -78,7 +60,7 @@ def monitor_queue(graph, que, wait):
 def initialize_graph():
     graph = graphdb.graph()
     graph.add_index('id')
-    graph.add_index('process.pid')
+    graph.add_index('pid')
     record_events(graph, audit.processes())
     return graph
 
@@ -115,7 +97,7 @@ def main():
         auditd_thread = threading.Thread(target=tail_file, args=(args.auditd, 0.1, lambda x: auditd_queue.put(x)))
         auditd_thread.daemon = True
         auditd_thread.start()
-        ignore = []
+        ignore = set([re.compile('^proc:::$')])
         baseline, actual = initialize_graph(), graphdb.graph()
         state, init = 'baseline', datetime.datetime.now()
         logging.info(state)
@@ -141,23 +123,23 @@ def main():
                     logging.info(state)
                 # perform work
                 if state == 'baseline':
-                    monitor_queue(baseline, auditd_queue, 0.1)
+                    monitor_queue(auditd_queue, 0.1, baseline)
                 elif state == 'normalize':
                     baseline = baseline.compress('id')
-                    ignore = ignore_patterns(baseline, 0.6, 3)
+                    ignore = ignore.union(ignore_patterns(actual, 0.6, 3))
                 elif state == 'prepare':
                     actual = initialize_graph()
                 elif state == 'collect':
-                    monitor_queue(actual, auditd_queue, 0.1)
+                    monitor_queue(auditd_queue, 0.1, actual)
                 elif state == 'detect':
-                    anomalies = compare_graphs(baseline, actual, ignore)
+                    anomalies = baseline.compare(actual, 'id', lambda x: any(i for i in ignore if i.match(x)))
                     for path in anomalies:
                         logging.warning('->'.join(v.attributes['id'] for v in path))
                     if anomalies and args.rebase:
                         logging.debug('+rebase')
                         for path in anomalies:
                             baseline.merge_path(path, 'id')
-                        ignore = ignore_patterns(baseline, 0.6, 3)
+                        ignore = ignore.union(ignore_patterns(actual, 0.6, 3))
             except Exception:
                 logging.exception('event_loop')
     except Exception:

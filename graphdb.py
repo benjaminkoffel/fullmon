@@ -43,13 +43,7 @@ class graph:
     def add_index(self, attribute):
         if attribute not in self.indexes:
             self.indexes[attribute] = {}
-            for v in self.vertices:
-                if attribute in v.attributes:
-                    value = v.attributes[attribute]
-                    if value not in self.indexes[attribute]:
-                        self.indexes[attribute][value] = set([v])
-                    else:
-                        self.indexes[attribute][value].add(v)
+        return self.indexes[attribute]
 
     def add_vertex(self, attributes):
         v = vertex(attributes)
@@ -88,40 +82,6 @@ class graph:
             return set()
         return set(self.indexes[attribute][value])
 
-    def list_leaf_paths(self):
-        a = []
-        q = collections.deque([(i, []) for i in self.vertices if not i.edges_to])
-        while q:
-            (v, p) = q.popleft()
-            n = set(e.vertex_to for e in v.edges_from) - set(p)
-            if not n:
-                a.append(p + [v])
-            else:
-                for x in n:
-                    q.append((x, p + [v]))
-        return a
-
-    def list_paths(self):
-        a = []
-        q = collections.deque([(i, []) for i in self.vertices])
-        while q:
-            (v, p) = q.popleft()
-            a.append(p + [v])
-            for n in set(e.vertex_to for e in v.edges_from) - set(p):
-                q.append((n, p + [v]))
-        return a
-
-    def has_path(self, path, attribute):
-        q = collections.deque([(i, []) for i in self.vertices])
-        while q:
-            (v, p) = q.popleft()
-            if v.attributes[attribute] == path[len(p)].attributes[attribute]:
-                if len(p) == len(path) - 1:
-                    return True
-                for n in set(e.vertex_to for e in v.edges_from):
-                    q.append((n, p + [v]))
-        return False
-
     def compress(self, attribute):
         g = graph()
         g.add_index(attribute)
@@ -150,3 +110,17 @@ class graph:
             if f and not any(e for e in f.edges_from if e.vertex_to == s):
                 self.add_edge(f, s, {})
             f = s
+
+    def compare(self, other, attribute, ignore):
+        a = []
+        q = collections.deque([(i, []) for i in other.vertices])
+        while q:
+            (v, p) = q.popleft()
+            if ignore(v.attributes[attribute]):
+                continue
+            S = self.find_vertices(attribute, v.attributes[attribute])
+            if not S or (p and not any(e for e in S.pop().edges_to if e.vertex_from.attributes[attribute] == p[-1].attributes[attribute])):
+                a.append(p + [v])
+            for n in set(e.vertex_to for e in v.edges_from) - set(p):
+                q.append((n, p + [v]))
+        return a

@@ -6,7 +6,6 @@ import os
 import re
 import socket
 import struct
-import time
 
 re_auditd = re.compile('(?P<key>[\S]+)=(?P<value>"([^"]+)"|([\S]+))')
 re_stat = re.compile('(\(\(([^\)]+)\)\)|\(([^\)]+)\)|([\S]+))')
@@ -33,61 +32,38 @@ def extract_container(cmd):
     m = re_container.match(cmd)
     return m.group(1) if m else ''
 
-def to_netconn(messages):
-    items = []
-    syscall = [i for i in messages if i.get('type') == 'SYSCALL']
-    proctitle = [i for i in messages if i.get('type') == 'PROCTITLE']
-    sockaddr = [i for i in messages if i.get('type') == 'SOCKADDR']
-    if syscall and proctitle and sockaddr:
-        ip, port = decode_saddr(sockaddr[0]['saddr'])
-        items.append({
-            'type': 'netconn',
-            'ppid': syscall[0]['ppid'],
-            'pid': syscall[0]['pid'],
-            'uid': syscall[0]['uid'],
-            'exe': syscall[0]['exe'],
-            'con': extract_container(decode_proctitle(proctitle[0]['proctitle'])),
-            'ip': ip,
-            'port': port
-        })
-    return items
-
-def to_filemod(messages):
-    items = []
-    syscall = [i for i in messages if i.get('type') == 'SYSCALL']
-    proctitle = [i for i in messages if i.get('type') == 'PROCTITLE']
-    paths = [i for i in messages if i.get('type') == 'PATH']
-    if syscall and proctitle and paths:
-        values = []
-        for path in paths:
-            name, nametype = path.get('name'), path.get('nametype')
-            if name and nametype in ['CREATE', 'DELETE']:
-                items.append({
-                    'type': 'filemod',
-                    'ppid': syscall[0]['ppid'],
-                    'pid': syscall[0]['pid'],
-                    'uid': syscall[0]['uid'],
-                    'exe': syscall[0]['exe'],
-                    'con': extract_container(decode_proctitle(proctitle[0]['proctitle'])),
-                    'path': name,
-                    'action': nametype
-                })  
-    return items
-
-def to_process(messages):
-    items = []
+def process(messages):
     syscall = [i for i in messages if i.get('type') == 'SYSCALL']
     proctitle = [i for i in messages if i.get('type') == 'PROCTITLE']
     if syscall and proctitle:
-        items.append({
+        yield {
             'type': 'process',
             'ppid': syscall[0]['ppid'],
             'pid': syscall[0]['pid'],
-            'uid': syscall[0]['uid'],
-            'exe': syscall[0]['exe'],
-            'con': extract_container(decode_proctitle(proctitle[0]['proctitle']))
-        })
-    return items
+            'uid': syscall[0]['auid'],
+            'exe': syscall[0]['comm'],
+            'con': extract_container(decode_proctitle(proctitle[0]['proctitle']))}
+
+def filemod(messages):
+    for proc in process(messages):
+        for msg in messages:
+            if msg.get('type') == 'PATH':
+                name, nametype = msg['name'], msg['nametype']
+                if nametype in ['CREATE', 'DELETE']:
+                    yield {**proc, **{
+                        'type': 'filemod',
+                        'path': name,
+                        'action': nametype}}
+
+def netconn(messages):
+    for proc in process(messages):
+        for msg in messages:
+            if msg.get('type') == 'SOCKADDR':
+                ip, port = decode_saddr(msg['saddr'])
+                yield {**proc, **{
+                    'type': 'netconn',
+                    'ip': ip,
+                    'port': port}}
 
 def parse(line):
     values = {}
@@ -103,11 +79,11 @@ def collect(line, action):
     if collect.buffer and collect.buffer[0]['msg'] != values.get('msg'):
         key = ''.join(i.get('key') for i in collect.buffer if i.get('type') == 'SYSCALL')
         if key == 'PROCESS':
-            events = to_process(collect.buffer)
+            events = process(collect.buffer)
         elif key == 'FILEMOD':
-            events = to_filemod(collect.buffer)
+            events = filemod(collect.buffer)
         elif key == 'NETCONN':
-            events = to_netconn(collect.buffer)
+            events = netconn(collect.buffer)
         else:
             events = []
         action(events)
@@ -115,11 +91,10 @@ def collect(line, action):
     collect.buffer.append(values)
 
 def processes():
-    items = []
     try:
         pids = [int(f) for f in os.listdir('/proc') if f.isdigit()]
     except FileNotFoundError:
-        return items
+        return
     for pid in pids:
         try:
             with open('/proc/{}/stat'.format(pid)) as f:
@@ -130,23 +105,18 @@ def processes():
                 cmdline = f.read()
         except FileNotFoundError:
             continue # must exist
-        try:
-            exe = os.readlink('/proc/{}/exe'.format(pid))
-        except FileNotFoundError:
-            exe = stats[1][0].strip('()').split('/')[0]
         stats = re_stat.findall(stat)
         ppid = int(stats[3][0])
         uid = int(uid_map.split()[0])
+        exe = stats[1][0].strip('()').split('/')[0]
         con = extract_container(cmdline)
-        items.append({
+        yield {
             'type': 'process',
             'ppid': ppid,
             'pid': pid,
             'uid': uid,
             'exe': exe,
-            'con': con
-        })
-    return items
+            'con': con}
 
 def identify_temps(filenames, min_similarity, min_found):
     def find_all(string, char):
