@@ -93,8 +93,9 @@ def main():
         parser.add_argument('--rebase', action='store_true', help='Update baseline with detected behaviour anomalies.')
         args = parser.parse_args()
         # initialize state
+        wait_seconds = 0.5
         auditd_queue = queue.Queue()
-        auditd_thread = threading.Thread(target=tail_file, args=(args.auditd, 0.1, lambda x: auditd_queue.put(x)))
+        auditd_thread = threading.Thread(target=tail_file, args=(args.auditd, wait_seconds, lambda x: auditd_queue.put(x)))
         auditd_thread.daemon = True
         auditd_thread.start()
         ignore = set([re.compile('^proc:::$')])
@@ -123,14 +124,14 @@ def main():
                     logging.info(state)
                 # perform work
                 if state == 'baseline':
-                    monitor_queue(auditd_queue, 0.1, baseline)
+                    monitor_queue(auditd_queue, wait_seconds, baseline)
                 elif state == 'normalize':
                     baseline = baseline.compress('id')
-                    ignore = ignore.union(ignore_patterns(actual, 0.6, 3))
+                    ignore = ignore.union(ignore_patterns(baseline, 0.5, 3))
                 elif state == 'prepare':
                     actual = initialize_graph()
                 elif state == 'collect':
-                    monitor_queue(auditd_queue, 0.1, actual)
+                    monitor_queue(auditd_queue, wait_seconds, actual)
                 elif state == 'detect':
                     anomalies = baseline.compare(actual, 'id', lambda x: any(i for i in ignore if i.match(x)))
                     for path in anomalies:
@@ -139,7 +140,7 @@ def main():
                         logging.debug('+rebase')
                         for path in anomalies:
                             baseline.merge_path(path, 'id')
-                        ignore = ignore.union(ignore_patterns(actual, 0.6, 3))
+                        ignore = ignore.union(ignore_patterns(baseline, 0.5, 3))
             except Exception:
                 logging.exception('event_loop')
     except Exception:
