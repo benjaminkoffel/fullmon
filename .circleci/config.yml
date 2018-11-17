@@ -7,3 +7,8 @@ jobs:
       - run: sh build.sh
       - store_artifacts:
           path: fullmon
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build
