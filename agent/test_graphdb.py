@@ -11,7 +11,7 @@ class TestGraphDB(unittest.TestCase):
     def test_add_vertex_ok(self):
         g = graphdb.graph()
         v = g.add_vertex({'id': '123'})
-        self.assertEqual('1234', v.attributes['id'])
+        self.assertEqual('123', v.attributes['id'])
         
     def test_add_edge_ok(self):
         g = graphdb.graph()
