@@ -1,5 +1,7 @@
 # fullmon
 
+[![CircleCI](https://circleci.com/gh/benjaminkoffel/fullmon.svg?style=svg)](https://circleci.com/gh/benjaminkoffel/fullmon)
+
 Poor man's EDR using Auditd and Dnsmasq. 
 
 Process execution, network connections and file modifications are logged via Auditd to `/var/log/audit/audit.log`.
