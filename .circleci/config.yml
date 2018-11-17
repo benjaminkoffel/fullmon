@@ -7,7 +7,7 @@ jobs:
       - checkout
       - run: ./build.sh
       - store_artifacts:
-          path: fullmon
+          path: fullmon.tar.gz
 workflows:
   version: 2
   build:

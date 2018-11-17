@@ -2,7 +2,7 @@
 Description=fullmon
 
 [Service]
-ExecStart=/opt/fullmon/daemon.sh
+ExecStart=/usr/local/bin/fullmon.sh
 Restart=on-failure
 
 [Install]
