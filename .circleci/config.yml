@@ -4,7 +4,7 @@ jobs:
     docker:
       - image: circleci/python:3.6.1
     steps:
-      - run: build.sh
+      - run: ./build.sh
       - store_artifacts:
           path: fullmon
 workflows:
