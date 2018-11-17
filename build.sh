@@ -1,8 +1,7 @@
 #!/bin/bash
 
-set -euo pipefail
+set -euxo pipefail
 
-python3 -m pip install -q nuitka --upgrade
-python3 -m nuitka --follow-imports agent/agent.py
-rm -rf agent.build
-mv agent.bin fullmon
+python3 -m unittest discover -s agent/ -v
+python3 -m pip install nuitka --upgrade
+python3 -m nuitka --follow-imports -o fullmon agent/agent.py
