@@ -2,15 +2,22 @@
 import argparse
 import datetime
 import logging
-import queue
 import re
 import sys
-import threading
 import time
 import audit
 import graphdb
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s\t%(levelname)s\t%(message)s', stream=sys.stdout)
+
+# todo: temp file pattern detection requires optimization or refactoring
+def ignore_patterns(graph, min_similarity, min_found):
+    patterns = set()
+    filenames = {v.attributes['id'][12:] for v in graph.vertices if v.attributes['id'].startswith('file:')}
+    for p in audit.identify_temps(filenames, min_similarity, min_found):
+        logging.debug('+ignore %s', p)
+        patterns.add(re.compile('^file:[^:]+:{}$'.format(p)))
+    return patterns
 
 def record_events(graph, events):
     for event in events:
@@ -41,47 +48,32 @@ def record_events(graph, events):
                 graph.add_edge(a, b, {})
                 logging.debug('+%s', id)
 
-def ignore_patterns(graph, min_similarity, min_found):
-    patterns = set()
-    filenames = [v.attributes['id'][12:] for v in graph.vertices if v.attributes['id'].startswith('file:')]
-    for p in audit.identify_temps(filenames, min_similarity, min_found):
-        logging.info('+ignore %s', p)
-        patterns.add(re.compile('^file:[^:]+:{}$'.format(p)))
-    return patterns
-
-def monitor_queue(que, wait, graph):
-    try:
-        line = que.get(block=False)
-        audit.collect(line, lambda x: record_events(graph, x))
-        que.task_done()
-    except queue.Empty:
-        time.sleep(wait)
-
-def initialize_graph():
-    graph = graphdb.graph()
-    graph.add_index('id')
-    graph.add_index('pid')
-    record_events(graph, audit.processes())
-    return graph
-
-def tail_file(path, wait, action):
-    cur = 0
+def event_loop(auditd_path, baseline_seconds, monitor_seconds, rebase_enabled, wait_seconds):
+    logging.info('initialize')
+    ignore = set([re.compile('^proc:::$')])
+    baseline = graphdb.graph(['id'])
+    current = graphdb.graph(['pid', 'id'])
+    record_events(current, audit.processes())
+    position = 0
+    init, start = datetime.datetime.now(), datetime.datetime.now()
+    logging.info('monitor')
     while True:
-        try:
-            with open(path) as f:
-                f.seek(0,2)
-                if f.tell() < cur:
-                    f.seek(0,0)
-                else:
-                    f.seek(cur,0)
-                for line in f:
-                    action(line)
-                cur = f.tell()
-        except IOError as e:
-            pass
-        except Exception:
-            logging.exception('tail_loop')
-        time.sleep(wait)
+        now = datetime.datetime.now()
+        events, position = audit.tail(auditd_path, position)
+        record_events(current, events)
+        if (now - start).seconds > monitor_seconds:
+            anomalies = baseline.compare(current, 'id', lambda x: any(i for i in ignore if i.match(x)))
+            for path in anomalies:
+                if rebase_enabled or (now - init).seconds <= baseline_seconds:
+                    baseline.merge_path(path, 'id')
+                if (now - init).seconds > baseline_seconds:
+                    logging.warning('->'.join(v.attributes['id'] for v in path))
+            ignore = ignore.union(ignore_patterns(baseline, 0.5, 3))
+            current = graphdb.graph(['pid', 'id'])
+            record_events(current, audit.processes())
+            start = datetime.datetime.now()
+            logging.info('monitor')
+        time.sleep(wait_seconds)
 
 def main():
     try:
@@ -92,59 +84,9 @@ def main():
         parser.add_argument('--monitor', type=int, help='Time in seconds before each baseline comparison.', required=True)
         parser.add_argument('--rebase', action='store_true', help='Update baseline with detected behaviour anomalies.')
         args = parser.parse_args()
-        # initialize state
-        wait_seconds = 0.5
-        auditd_queue = queue.Queue()
-        auditd_thread = threading.Thread(target=tail_file, args=(args.auditd, wait_seconds, lambda x: auditd_queue.put(x)))
-        auditd_thread.daemon = True
-        auditd_thread.start()
-        ignore = set([re.compile('^proc:::$')])
-        baseline, actual = initialize_graph(), graphdb.graph()
-        state, init = 'baseline', datetime.datetime.now()
-        logging.info(state)
-        # event loop
-        while True:
-            try:
-                now = datetime.datetime.now()
-                # state transitions
-                if state == 'baseline' and (now - init).seconds > args.baseline:
-                    state, init = 'normalize', datetime.datetime.now()
-                    logging.info(state)
-                elif state == 'normalize':
-                    state, init = 'prepare', datetime.datetime.now()
-                    logging.info(state)
-                elif state == 'prepare':
-                    state, init = 'collect', datetime.datetime.now()
-                    logging.info(state)
-                elif state == 'collect' and (now - init).seconds > args.monitor:
-                    state, init = 'detect', datetime.datetime.now()
-                    logging.info(state)
-                elif state == 'detect':
-                    state, init = 'prepare', datetime.datetime.now()
-                    logging.info(state)
-                # perform work
-                if state == 'baseline':
-                    monitor_queue(auditd_queue, wait_seconds, baseline)
-                elif state == 'normalize':
-                    baseline = baseline.compress('id')
-                    ignore = ignore.union(ignore_patterns(baseline, 0.5, 3))
-                elif state == 'prepare':
-                    actual = initialize_graph()
-                elif state == 'collect':
-                    monitor_queue(auditd_queue, wait_seconds, actual)
-                elif state == 'detect':
-                    anomalies = baseline.compare(actual, 'id', lambda x: any(i for i in ignore if i.match(x)))
-                    for path in anomalies:
-                        logging.warning('->'.join(v.attributes['id'] for v in path))
-                    if anomalies and args.rebase:
-                        logging.debug('+rebase')
-                        for path in anomalies:
-                            baseline.merge_path(path, 'id')
-                        ignore = ignore.union(ignore_patterns(baseline, 0.5, 3))
-            except Exception:
-                logging.exception('event_loop')
+        event_loop(args.auditd, args.baseline, args.monitor, args.rebase, 0.5)        
     except Exception:
-        logging.exception('main_func')
+        logging.exception('main')
     except KeyboardInterrupt:
         sys.stdout.flush()
 
