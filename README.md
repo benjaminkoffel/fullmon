@@ -19,14 +19,19 @@ baseline. Ignore patterns to reduce noise from temp file modifications are also 
 ## Usage
 
 ```
-# run tests and build statically linked binary
+# run monitoring on cli
+python3 agent/agent.py --auditd /var/log/audit/audit.log --baseline 60 --monitor 10 --rebase
+
+# run tests then build and package statically linked binary
 sh build.sh
 
 # install as systemd service
 sudo sh install-debian.sh
 
-# run monitoring on cli
-python3 agent/agent.py --auditd /var/log/audit/audit.log --baseline 60 --monitor 10 --rebase
+# install from bundled package
+wget https://21-152868569-gh.circle-artifacts.com/0/home/circleci/project/fullmon.tar.gz
+tar -xvzf fullmon.tar.gz
+sudo sh install-debian.sh
 ```
 
 ## Example
