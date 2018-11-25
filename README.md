@@ -19,8 +19,14 @@ baseline. Ignore patterns to reduce noise from temp file modifications are also 
 ## Usage
 
 ```
-sh install.sh
-python3 agent.py --auditd /var/log/audit/audit.log --baseline 60 --monitor 10
+# run tests and build statically linked binary
+sh build.sh
+
+# install as systemd service
+sudo sh install-debian.sh
+
+# run monitoring on cli
+python3 agent/agent.py --auditd /var/log/audit/audit.log --baseline 60 --monitor 10 --rebase
 ```
 
 ## Example
