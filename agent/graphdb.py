@@ -35,15 +35,10 @@ class edge:
 
 class graph:
 
-    def __init__(self):
+    def __init__(self, attributes):
         self.vertices = set()
         self.edges = set()
-        self.indexes = {}
-
-    def add_index(self, attribute):
-        if attribute not in self.indexes:
-            self.indexes[attribute] = {}
-        return self.indexes[attribute]
+        self.indexes = {a: {} for a in attributes}
 
     def add_vertex(self, attributes):
         v = vertex(attributes)
@@ -81,22 +76,6 @@ class graph:
         if value not in self.indexes[attribute]:
             return set()
         return set(self.indexes[attribute][value])
-
-    def compress(self, attribute):
-        g = graph()
-        g.add_index(attribute)
-        q = collections.deque([(i, [], None) for i in self.vertices])
-        while q:
-            (v, p, f) = q.popleft()
-            S = g.find_vertices(attribute, v.attributes[attribute])
-            if not S:
-                S = set([g.add_vertex({attribute: v.attributes[attribute]})])
-            s = S.pop()
-            if f and not any(e for e in f.edges_from if e.vertex_to == s):
-                g.add_edge(f, s, {})
-            for n in set([e.vertex_to for e in v.edges_from]) - set(p):
-                q.append((n, p + [v], s))
-        return g
 
     def merge_path(self, path, attribute):
         f = None
