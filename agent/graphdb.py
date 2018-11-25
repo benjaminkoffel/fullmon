@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import ast
 import copy
 import collections
 import random
@@ -19,13 +20,12 @@ class vertex:
 
 class edge:
 
-    def __init__(self, vertex_from, vertex_to, attributes):
+    def __init__(self, vertex_from, vertex_to):
         self.id = random.getrandbits(128)
         self.vertex_from = vertex_from
         self.vertex_to = vertex_to
         self.vertex_from.edges_from.add(self)
         self.vertex_to.edges_to.add(self)
-        self.attributes = copy.deepcopy(attributes)
 
     def __hash__(self):
         return self.id
@@ -65,8 +65,8 @@ class graph:
                 else:
                     self.indexes[attribute][value].add(vertex)
 
-    def add_edge(self, vertex_from, vertex_to, attributes):
-        e = edge(vertex_from, vertex_to, attributes)
+    def add_edge(self, vertex_from, vertex_to):
+        e = edge(vertex_from, vertex_to)
         self.edges.add(e)
         return e
 
@@ -87,7 +87,7 @@ class graph:
                 S = set([self.add_vertex({attribute: v.attributes[attribute]})])
             s = S.pop()
             if f and not any(e for e in f.edges_from if e.vertex_to == s):
-                self.add_edge(f, s, {})
+                self.add_edge(f, s)
             f = s
 
     def compare(self, other, attribute, ignore):
@@ -103,3 +103,21 @@ class graph:
             for n in set(e.vertex_to for e in v.edges_from) - set(p):
                 q.append((n, p + [v]))
         return a
+
+def serialize(obj):
+    data = {
+        'indexes': [i for i in obj.indexes],
+        'vertices': {v.id: v.attributes for v in obj.vertices},
+        'edges': {e.vertex_from.id: e.vertex_to.id for e in obj.edges}
+    }
+    return str(data)
+
+def deserialize(text):
+    data = ast.literal_eval(text)
+    obj = graph(data['indexes'])
+    lookup = {}
+    for i, a in data['vertices'].items():
+        lookup[i] = obj.add_vertex(a)
+    for f, t in data['edges'].items():
+        obj.add_edge(lookup[f], lookup[t])
+    return obj
