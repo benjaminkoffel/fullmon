@@ -29,7 +29,7 @@ sh build.sh
 sudo sh install-debian.sh
 
 # install from bundled package
-wget https://21-152868569-gh.circle-artifacts.com/0/home/circleci/project/fullmon.tar.gz
+wget https://circleci.com/api/v1/project/benjaminkoffel/fullmon/latest/artifacts/0/home/circleci/project/fullmon.tar.gz
 tar -xvzf fullmon.tar.gz
 sudo sh install-debian.sh
 ```
