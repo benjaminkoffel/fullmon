@@ -72,33 +72,40 @@ def parse(line):
             values[match.group('key')] = match.group('value').strip('"')
     return values
 
-def tail(path, position):
-    if not hasattr(tail, 'buffer'):
-        tail.buffer = []
+def collect(line):
+    if not hasattr(collect, 'buffer'):
+        collect.buffer = []
+    events = []
+    values = parse(line)
+    if collect.buffer and collect.buffer[0]['msg'] != values.get('msg'):
+        key = ''.join(i.get('key') for i in collect.buffer if i.get('type') == 'SYSCALL')
+        if key == 'PROCESS':
+            events = process(collect.buffer)
+        elif key == 'FILEMOD':
+            events = filemod(collect.buffer)
+        elif key == 'NETCONN':
+            events = netconn(collect.buffer)
+        collect.buffer = []
+    collect.buffer.append(values)
+    return events
+
+def tail(path):
+    if not hasattr(tail, 'position'):
+        tail.position = 0
     events = []
     try:
         with open(path) as f:
             f.seek(0, 2)
-            if f.tell() < position:
+            if f.tell() < tail.position:
                 f.seek(0, 0)
             else:
-                f.seek(position, 0)
+                f.seek(tail.position, 0)
             for line in f:
-                values = parse(line)
-                if tail.buffer and tail.buffer[0]['msg'] != values.get('msg'):
-                    key = ''.join(i.get('key') for i in tail.buffer if i.get('type') == 'SYSCALL')
-                    if key == 'PROCESS':
-                        events += process(tail.buffer)
-                    elif key == 'FILEMOD':
-                        events += filemod(tail.buffer)
-                    elif key == 'NETCONN':
-                        events += netconn(tail.buffer)
-                    tail.buffer = []
-                tail.buffer.append(values)
-            position = f.tell()
+                events += collect(line)
+            tail.position = f.tell()
     except IOError as e:
         pass
-    return events, position
+    return events
 
 def processes():
     try:
