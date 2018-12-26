@@ -7,13 +7,11 @@ import re
 import socket
 import struct
 
-re_auditd = re.compile('(?P<key>[\S]+)=(?P<value>"([^"]+)"|([\S]+))')
-re_stat = re.compile('(\(\(([^\)]+)\)\)|\(([^\)]+)\)|([\S]+))')
-re_container = re.compile('docker-containerd-shim.*([a-f0-9]{12})[a-f0-9]{52}.*')
+re_auditd = re.compile(r'(?P<key>[\S]+)=(?P<value>"([^"]+)"|([\S]+))')
+re_stat = re.compile(r'(\(\(([^\)]+)\)\)|\(([^\)]+)\)|([\S]+))')
+re_container = re.compile(r'docker-containerd-shim.*([a-f0-9]{12})[a-f0-9]{52}.*')
 
 def decode_saddr(saddr):
-    c = codecs.decode(saddr, 'hex')
-    p, i = struct.unpack_from("!H4s", c, offset=2)
     raw = codecs.decode(saddr, 'hex')
     family, = struct.unpack_from("@H", raw)
     if family == socket.AF_INET:
@@ -103,7 +101,7 @@ def tail(path):
             for line in f:
                 events += collect(line)
             tail.position = f.tell()
-    except IOError as e:
+    except IOError:
         pass
     return events
 
