@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-import ast
 import copy
 import collections
+import json
 import random
 
 class vertex:
@@ -105,19 +105,18 @@ class graph:
         return a
 
 def serialize(obj):
-    data = {
+    return json.dumps({
         'indexes': [i for i in obj.indexes],
         'vertices': {v.id: v.attributes for v in obj.vertices},
         'edges': {e.vertex_from.id: e.vertex_to.id for e in obj.edges}
-    }
-    return str(data)
+    })
 
 def deserialize(text):
-    data = ast.literal_eval(text)
+    data = json.loads(text)
     obj = graph(data['indexes'])
     lookup = {}
     for i, a in data['vertices'].items():
-        lookup[i] = obj.add_vertex(a)
+        lookup[str(i)] = obj.add_vertex(a)
     for f, t in data['edges'].items():
-        obj.add_edge(lookup[f], lookup[t])
+        obj.add_edge(lookup[str(f)], lookup[str(t)])
     return obj

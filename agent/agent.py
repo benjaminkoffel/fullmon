@@ -51,12 +51,12 @@ def update_ignore(ignore, min_similarity, min_found, graph):
 
 def detect_anomalies(current, baseline, ignore, merge_enabled, alert_enabled):
     anomalies = baseline.compare(current, 'id', lambda x: any(i for i in ignore if i.match(x)))
-    for path in anomalies:
-        if alert_enabled:
+    if alert_enabled:
+        for path in anomalies:
             logging.warning('->'.join(v.attributes['id'] for v in path))
-        if merge_enabled:
-            baseline.merge_path(path, 'id')
     if merge_enabled:
+        for path in anomalies:
+            baseline.merge_path(path, 'id')
         update_ignore(ignore, 0.5, 3, baseline)
 
 def tail_auditd(auditd_path, monitor_seconds, wait_seconds, graph):

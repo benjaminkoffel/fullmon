@@ -148,7 +148,7 @@ def identify_temps(filenames, min_similarity, min_found):
                     fp, sp = f.split('/'), s.split('/')
                     p = '/'.join(re.escape(sp[i]) if sp[i] == fp[i] else '[^/]+' for i in range(len(fp)))
                     L = [i for i in S if re.match(p, i)]
-                    if len(L) > min_found:
+                    if len(L) >= min_found:
                         for l in L:
                             F.remove(l)
                         P.add(p)

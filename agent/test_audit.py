@@ -33,5 +33,17 @@ class TestAudit(unittest.TestCase):
         self.assertEqual('59', data['syscall'])
         self.assertEqual('PROCESS', data['key'])
 
+    def test_identify_temps_ok(self):
+        filenames = [
+            '/var/log/temp.11111.log',
+            '/var/log/temp.22222.log',
+            '/var/log/temp.33333.log',
+            '/var/log/temp.44444.log',
+            '/var/other/temp.55555.log',
+            '/www/log/temp.44444.log',
+        ]
+        temps = audit.identify_temps(filenames, 0.7, 3)
+        self.assertEqual({'/var/log/[^/]+'}, temps)
+
 if __name__ == '__main__':
     unittest.main()
