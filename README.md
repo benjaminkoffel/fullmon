@@ -39,44 +39,31 @@ sudo ./install-debian.sh
 
 ```
 $ sudo python3 agent.py --auditd /var/log/audit/audit.log --baseline 5 --monitor 5 --rebase
-2018-11-10 11:06:00,203	INFO	baseline
-2018-11-10 11:06:06,544	INFO	normalize
-2018-11-10 11:06:07,467	INFO	+ignore /home/debian/\.local/share/gvfs\-metadata/[^/]+
-2018-11-10 11:06:07,468	INFO	+ignore /opt/nessus_agent/var/nessus/[^/]+
-2018-11-10 11:06:07,468	INFO	+ignore /var/cache/apt/archives/partial/[^/]+
-2018-11-10 11:06:07,468	INFO	+ignore /dev/shm/[^/]+
-2018-11-10 11:06:07,468	INFO	+ignore /var/lib/apt/lists/[^/]+
-2018-11-10 11:06:07,469	INFO	+ignore /var/lib/apt/lists/partial/[^/]+
-2018-11-10 11:06:07,469	INFO	+ignore /var/lib/upower/[^/]+
-2018-11-10 11:06:07,469	INFO	+ignore /dev/char/[^/]+
-2018-11-10 11:06:07,469	INFO	+ignore /run/udev/data/[^/]+
-2018-11-10 11:06:07,469	INFO	+ignore /opt/nessus_agent/[^/]+/nessus/[^/]+/[^/]+
-2018-11-10 11:06:07,470	INFO	+ignore \.git/objects/[^/]+/[^/]+
-2018-11-10 11:06:07,470	INFO	+ignore /tmp/[^/]+
-2018-11-10 11:06:07,470	INFO	+ignore /tmp/[^/]+/[^/]+
-2018-11-10 11:06:07,470	INFO	prepare
-2018-11-10 11:06:07,525	INFO	collect
-2018-11-10 11:06:20,001	INFO	detect
+debian@debian:/var/log$ tail -f fullmon.log 
+2019-03-17 17:47:58,984	INFO	initialize
+2019-03-17 17:47:58,985	INFO	monitor
+2019-03-17 17:48:09,165	INFO	analyze
+2019-03-17 17:48:09,354	INFO	ignore /opt/fullmon/__pycache__/[^/]+
+2019-03-17 17:48:09,355	INFO	ignore /dev/shm/[^/]+
+2019-03-17 17:48:09,356	INFO	ignore /run/systemd/generator\.late/[^/]+
+2019-03-17 17:48:09,356	INFO	ignore \.git/objects/[^/]+
+2019-03-17 17:48:09,357	INFO	ignore /var/lib/apt/lists/partial/[^/]+
+2019-03-17 17:48:09,357	INFO	ignore /tmp/[^/]+
+2019-03-17 17:48:09,358	INFO	ignore /tmp/[^/]+/[^/]+
+2019-03-17 17:48:09,359	INFO	ignore /opt/fullmon/[^/]+
+2019-03-17 17:48:09,359	INFO	ignore /home/debian/\.local/share/keyrings/[^/]+
+2019-03-17 17:48:09,360	INFO	ignore \.git/objects/[^/]+/[^/]+
+2019-03-17 17:48:09,361	INFO	ignore /var/cache/apt/[^/]+
+2019-03-17 17:48:09,361	INFO	monitor
+2019-03-17 17:48:19,422	INFO	analyze
 ...
-2018-11-10 11:06:20,337	INFO	prepare
-2018-11-10 11:06:20,391	INFO	collect
-2018-11-10 11:06:26,441	INFO	detect
-2018-11-10 11:06:26,447	WARNING	host:104.16.117.221:80
-2018-11-10 11:06:26,448	WARNING	host:104.16.120.221:80
-2018-11-10 11:06:26,448	WARNING	proc::1000:curl
-2018-11-10 11:06:26,448	WARNING	host:104.16.119.221:80
-2018-11-10 11:06:26,448	WARNING	host:104.16.118.221:80
-2018-11-10 11:06:26,448	WARNING	host:104.16.116.221:80
-2018-11-10 11:06:26,448	WARNING	proc::1000:curl->host:127.0.0.1:53
-2018-11-10 11:06:26,448	WARNING	proc::1000:curl->host:104.16.119.221:80
-2018-11-10 11:06:26,448	WARNING	proc::1000:curl->host:104.16.120.221:80
-2018-11-10 11:06:26,448	WARNING	proc::1000:curl->host:None:None
-2018-11-10 11:06:26,448	WARNING	proc::1000:curl->host:104.16.117.221:80
-2018-11-10 11:06:26,448	WARNING	proc::1000:curl->host:None:None
-2018-11-10 11:06:26,448	WARNING	proc::1000:curl->host:None:None
-2018-11-10 11:06:26,449	WARNING	proc::1000:curl->host:None:None
-2018-11-10 11:06:26,449	WARNING	proc::1000:curl->host:104.16.118.221:80
-2018-11-10 11:06:26,449	WARNING	proc::1000:curl->host:104.16.116.221:80
+2019-03-17 17:48:59,873	INFO	monitor
+2019-03-17 17:49:09,961	INFO	analyze
+2019-03-17 17:49:09,967	WARNING	host:151.101.65.140:80
+2019-03-17 17:49:09,968	WARNING	file:CREATE:blah.txt
+2019-03-17 17:49:09,968	WARNING	proc::1000:Chrome_IOThread
+2019-03-17 17:49:09,969	WARNING	proc::1000:touch->file:CREATE:blah.txt
+2019-03-17 17:49:09,969	WARNING	proc::1000:curl->host:151.101.65.140:80
 ```
 
 ## References
