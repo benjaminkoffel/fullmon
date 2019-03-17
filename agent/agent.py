@@ -53,7 +53,7 @@ def update_ignore(ignore, min_similarity, min_found, graph):
         if v.attributes['id'].startswith('file:')
             and not any(i for i in ignore if i.match(v.attributes['id']))}
     for p in audit.identify_temps(filenames, min_similarity, min_found):
-        logging.debug('+ignore %s', p)
+        logging.info('ignore %s', p)
         ignore.add(re.compile('^file:[^:]+:{}$'.format(p)))
 
 def detect_anomalies(current, baseline, ignore, merge_enabled, alert_enabled):

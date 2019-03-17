@@ -15,4 +15,3 @@ chmod 700 /etc/systemd/system/fullmon.service
 touch /var/log/fullmon.log
 chmod 600 /var/log/fullmon.log
 service fullmon restart
-systemctl daemon-reload
