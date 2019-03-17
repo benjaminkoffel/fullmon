@@ -2,36 +2,37 @@
 
 [![CircleCI](https://circleci.com/gh/benjaminkoffel/fullmon.svg?style=svg)](https://circleci.com/gh/benjaminkoffel/fullmon)
 
-Poor man's EDR using Auditd and Dnsmasq. 
+An experimental host intrusion detection system using behaviour anomaly detection.
 
-Process execution, network connections and file modifications are logged via Auditd to `/var/log/audit/audit.log`.
+The agent consumes logs produced by auditd to monitor process execution, network connections and file modifications.
 
-DNS traffic is proxied and logged via Dnsmasq to `/var/log/dns.log` and can be correlated to network connections.
+It works by building a baseline and then periodically compares that to observed behaviour.
 
-The generated logs are intended to be shipped to event storage where analysts can define use cases.
+There is also a rebase option available to continually update the baseline to reduce noise.
 
-The size of logs generated is excessive but the project's aim is just to demonstrate an incident response / threat hunting capability can be obtained with readily available system tools.
+The use case for this system is the monitoring of static servers that are not prone to manual user interaction.
 
-A work in progress is an agent that uses comparison of machine behaviour graphs to detect anomalies. The `--rebase` switch
-enables continuous update of the baseline behaviour graph with newly detected anomalous behaviour to create a rolling
-baseline. Ignore patterns to reduce noise from temp file modifications are also calculated at baseline creation and rebasing to reduce false positives.
+To do is the consumption of DNS request answers to reduce false positives caused by ephemeral IP addresses.
 
 ## Usage
 
 ```
+# install python3 and auditd with verbose rules
+sudo apt install -y python3 auditd
+sudo cp audit.rules /etc/audit/rules.d/
+sudo service auditd restart
+
 # run monitoring on cli
-python3 agent/agent.py --auditd /var/log/audit/audit.log --baseline 60 --monitor 10 --rebase
+sudo ./agent/agent.py
+sudo ./agent/agent.py --auditd /var/log/audit/audit.log --baseline 3600 --monitor 60 --rebase
 
-# run tests then build and package statically linked binary
-sh build.sh
-
-# install as systemd service
-sudo sh install-debian.sh
+# run tests and package
+./build.sh
 
 # install from bundled package
 wget https://circleci.com/api/v1/project/benjaminkoffel/fullmon/latest/artifacts/0/home/circleci/project/fullmon.tar.gz
 tar -xvzf fullmon.tar.gz
-sudo sh install-debian.sh
+sudo ./install-debian.sh
 ```
 
 ## Example
