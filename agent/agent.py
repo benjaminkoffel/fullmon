@@ -2,13 +2,20 @@
 import argparse
 import datetime
 import logging
+import logging.handlers
 import re
 import sys
 import time
 import audit
 import graphdb
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s\t%(levelname)s\t%(message)s', stream=sys.stdout)
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s\t%(levelname)s\t%(message)s', 
+    handlers=[
+        logging.StreamHandler(),
+        logging.handlers.RotatingFileHandler('/var/log/fullmon.log', maxBytes=5242880, backupCount=5),
+    ])
 
 def record_events(graph, events):
     for event in events:
@@ -24,19 +31,19 @@ def record_events(graph, events):
                 for b in B:
                     if b.attributes['id'] != id:
                         graph.update_attributes(b, {'pid': event['pid'], 'id': id})
-                    graph.add_edge(a, b, {})
+                    graph.add_edge(a, b)
                     logging.debug('+%s', id)
         if event['type'] == 'filemod':
             for a in graph.find_vertices('pid', event['pid']):
                 id = 'file:{}:{}'.format(event['action'], event['path'])
                 b = graph.add_vertex({'id': id})
-                graph.add_edge(a, b, {})
+                graph.add_edge(a, b)
                 logging.debug('+%s', id)
         if event['type'] == 'netconn':
             for a in graph.find_vertices('pid', event['pid']):
                 id = 'host:{}:{}'.format(event['ip'], event['port'])
                 b = graph.add_vertex({'id': id})
-                graph.add_edge(a, b, {})
+                graph.add_edge(a, b)
                 logging.debug('+%s', id)
 
 def update_ignore(ignore, min_similarity, min_found, graph):
@@ -87,9 +94,9 @@ def monitor_loop(auditd_path, baseline_seconds, monitor_seconds, rebase_enabled,
 def main():
     try:
         parser = argparse.ArgumentParser(description='Monitor auditd logs for anomalous user behaviour.')
-        parser.add_argument('--auditd', help='Path to auditd log file.', required=True)
-        parser.add_argument('--baseline', type=float, help='Time in seconds to generate baseline.', required=True)
-        parser.add_argument('--monitor', type=float, help='Time in seconds before each baseline comparison.', required=True)
+        parser.add_argument('--auditd', help='Path to auditd log file.', default='/var/log/audit/audit.log')
+        parser.add_argument('--baseline', type=float, help='Time in seconds to generate baseline.', default=3600)
+        parser.add_argument('--monitor', type=float, help='Time in seconds before each baseline comparison.', default=60)
         parser.add_argument('--rebase', action='store_true', help='Update baseline with detected behaviour anomalies.')
         parser.add_argument('--wait', type=float, help='Time in seconds to wait between auditd log reads.', default=0.5)
         args = parser.parse_args()
