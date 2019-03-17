@@ -14,7 +14,7 @@ logging.basicConfig(
     format='%(asctime)s\t%(levelname)s\t%(message)s', 
     handlers=[
         logging.StreamHandler(),
-        logging.handlers.RotatingFileHandler('/var/log/fullmon.log', maxBytes=5242880, backupCount=5),
+        logging.handlers.RotatingFileHandler('/var/log/fullmon.log', maxBytes=5242880, backupCount=20),
     ])
 
 def record_events(graph, events):
