@@ -60,10 +60,10 @@ def main():
     try:
         parser = argparse.ArgumentParser(description='Monitor auditd logs for anomalous user behaviour.')
         parser.add_argument('--auditd', help='Path to auditd log file.', default='/var/log/audit/audit.log')
-        parser.add_argument('--baseline', type=float, help='Time in seconds to generate baseline.', default=3600)
+        parser.add_argument('--baseline', type=float, help='Time in seconds to generate initial baseline.', default=600)
         parser.add_argument('--monitor', type=float, help='Time in seconds before each baseline comparison.', default=60)
         parser.add_argument('--rebase', action='store_true', help='Update baseline with detected behaviour anomalies.')
-        parser.add_argument('--wait', type=float, help='Time in seconds to wait between auditd log reads.', default=0.5)
+        parser.add_argument('--wait', type=float, help='Time in seconds to wait between auditd log reads.', default=1)
         args = parser.parse_args()
         monitor_loop(args.auditd, args.baseline, args.monitor, args.rebase, args.wait)
     except Exception:
