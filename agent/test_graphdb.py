@@ -3,78 +3,99 @@ import graphdb
 
 class TestGraphDB(unittest.TestCase):
 
-    def test_add_vertex_ok(self):
-        g = graphdb.graph([])
-        v = g.add_vertex({'id': '123'})
-        self.assertEqual('123', v.attributes['id'])
+    def test_append_proc(self):
+        g, m = {}, {}
+        e = [
+            {
+                'type': 'proc', 
+                'ppid': 45, 
+                'pid': 67, 
+                'con': 'xyz', 
+                'uid': 0, 
+                'exe': 'bash'
+            }
+        ]
+        graphdb.append(g, m, e)
+        self.assertEqual(len(g), 2)
+        self.assertEqual(g['p:45'], {'p:67'})
+        self.assertEqual(g['p:67'], set())
+        self.assertEqual(len(m), 2)
+        self.assertEqual(m['p:45'], 'p:::')
+        self.assertEqual(m['p:67'], 'p:xyz:0:bash')
+
+    def test_append_filemod(self):
+        g, m = {}, {}
+        e = [
+            {
+                'type': 'filemod', 
+                'ppid': 45, 
+                'pid': 67, 
+                'con': 'xyz', 
+                'uid': 0, 
+                'exe': 'bash',
+                'action': 'CREATE',
+                'path': '/root/blah'
+            }
+        ]
+        graphdb.append(g, m, e)
+        self.assertEqual(len(g), 3)
+        self.assertEqual(g['p:45'], {'p:67'})
+        self.assertEqual(g['p:67'], {'f:CREATE:/root/blah'})
+        self.assertEqual(g['f:CREATE:/root/blah'], set())
+        self.assertEqual(len(m), 3)
+        self.assertEqual(m['p:45'], 'p:::')
+        self.assertEqual(m['p:67'], 'p:xyz:0:bash')
+        self.assertEqual(m['f:CREATE:/root/blah'], 'f:CREATE:/root/blah')
         
-    def test_add_edge_ok(self):
-        g = graphdb.graph([])
-        a = g.add_vertex({})
-        b = g.add_vertex({})
-        e = g.add_edge(a, b)
-        self.assertEqual(a, e.vertex_from)
-        self.assertEqual(b, e.vertex_to)
-        self.assertEqual(set([e]), a.edges_from)
-        self.assertEqual(set([e]), b.edges_to)
+    def test_append_netconn(self):
+        g, m = {}, {}
+        e = [
+            {
+                'type': 'netconn', 
+                'ppid': 45, 
+                'pid': 67, 
+                'con': 'xyz', 
+                'uid': 0, 
+                'exe': 'bash',
+                'ip': '1.1.1.1',
+                'port': '53'
+            }
+        ]
+        graphdb.append(g, m, e)
+        self.assertEqual(len(g), 3)
+        self.assertEqual(g['p:45'], {'p:67'})
+        self.assertEqual(g['p:67'], {'n:1.1.1.1:53'})
+        self.assertEqual(g['n:1.1.1.1:53'], set())
+        self.assertEqual(len(m), 3)
+        self.assertEqual(m['p:45'], 'p:::')
+        self.assertEqual(m['p:67'], 'p:xyz:0:bash')
+        self.assertEqual(m['n:1.1.1.1:53'], 'n:1.1.1.1:53')
 
-    def test_update_attributes_ok(self):
-        g = graphdb.graph(['id'])
-        a = g.add_vertex({'id': '123'})
-        g.update_attributes(a, {'id': '234'})
-        s = g.find_vertices('id', '234')
-        self.assertEqual(set([a]), s)
+    def test_compress(self):
+        g = {'p:45': {'p:67'}, 'p:67': {'f:CREATE:/root/blah'}, 'f:CREATE:/root/blah': set()}
+        m = {'p:45': 'p:::', 'p:67': 'p:xyz:0:bash', 'f:CREATE:/root/blah': 'f:CREATE:/root/blah'}
+        c = graphdb.compress(g, m)
+        self.assertEqual(len(c), 3)
+        self.assertEqual(c['p:::'], {'p:xyz:0:bash'})
+        self.assertEqual(c['p:xyz:0:bash'], {'f:CREATE:/root/blah'})
+        self.assertEqual(c['f:CREATE:/root/blah'], set())
 
-    def test_find_vertices_ok(self):
-        g = graphdb.graph(['id'])
-        a = g.add_vertex({'id': '123'})
-        s = g.find_vertices('id', '123')
-        self.assertEqual(set([a]), s)
+    def test_compare_same(self):
+        b = {'p:::': {'p:xyz:0:bash'}, 'p:xyz:0:bash': {'f:CREATE:/root/blah'}, 'f:CREATE:/root/blah': set()}
+        c = {'p:::': {'p:xyz:0:bash'}, 'p:xyz:0:bash': {'f:CREATE:/root/blah'}, 'f:CREATE:/root/blah': set()}
+        a = graphdb.compare(b, c, lambda x: False)
+        self.assertEqual(a, [])
+    
+    def test_compare_diff(self):
+        b = {'p:::': {'p:xyz:0:bash'}, 'p:xyz:0:bash': {'f:CREATE:/root/blah'}, 'f:CREATE:/root/blah': set()}
+        c = {'p:xyz:0:bash': {'f:CREATE:/anomaly'}, 'f:CREATE:/anomaly': set()}
+        a = graphdb.compare(b, c, lambda x: False)
+        self.assertEqual(a, [['f:CREATE:/anomaly'], ['p:xyz:0:bash', 'f:CREATE:/anomaly']])
 
-    def test_merge_path_ok(self):
-        g = graphdb.graph(['id'])
-        a = g.add_vertex({'id': '1'})
-        b = g.add_vertex({'id': '2'})
-        g.add_edge(a, b)
-        c = graphdb.vertex({'id': '2'})
-        d = graphdb.vertex({'id': '3'})
-        g.merge_path([c, d], 'id')
-        self.assertEqual(3, len(g.vertices))
-        self.assertEqual(2, len(g.edges))
-        self.assertEqual(3, len(g.indexes['id']))
+    def test_merge(self):
+        b = {'p:::': {'p:xyz:0:bash'}, 'p:xyz:0:bash': set()}
+        graphdb.merge(b, ['p:xyz:0:bash', 'f:CREATE:/root/blah'])
+        self.assertEqual(b, {'p:::': {'p:xyz:0:bash'}, 'p:xyz:0:bash': {'f:CREATE:/root/blah'}, 'f:CREATE:/root/blah': set()})
 
-    def test_compare_ok(self):
-        g = graphdb.graph(['id'])
-        a = g.add_vertex({'id': '1'})
-        b = g.add_vertex({'id': '2'})
-        g.add_edge(a, b)
-        g2 = graphdb.graph(['id'])
-        c = g2.add_vertex({'id': '1'})
-        d = g2.add_vertex({'id': '3'})
-        e = g2.add_vertex({'id': '4'})
-        g2.add_edge(c, d)
-        p = g.compare(g2, 'id', lambda x: x == '4')
-        self.assertEqual(2, len(p))
-        self.assertIn([d], p)
-        self.assertIn([c, d], p)
-
-    def test_serialize__deserialize_ok(self):
-        g = graphdb.graph(['id'])
-        a = g.add_vertex({'id': '1'})
-        b = g.add_vertex({'id': '2'})
-        g.add_edge(a, b)
-        s = graphdb.serialize(g)
-        g2 = graphdb.deserialize(s)
-        self.assertEqual(1, len(g2.indexes))
-        self.assertEqual(2, len(g2.vertices))
-        self.assertEqual(1, len(g2.edges))
-        a2 = g2.find_vertices('id', '1').pop()
-        b2 = g2.find_vertices('id', '2').pop()
-        e2 = g2.edges.pop()
-        self.assertEqual(a.attributes, a2.attributes)
-        self.assertEqual(b.attributes, b2.attributes)
-        self.assertEqual(a.attributes, e2.vertex_from.attributes)
-        self.assertEqual(a.attributes, e2.vertex_from.attributes)
-        
 if __name__ == '__main__':
     unittest.main()

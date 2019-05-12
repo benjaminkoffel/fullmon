@@ -17,79 +17,44 @@ logging.basicConfig(
         logging.handlers.RotatingFileHandler('/var/log/fullmon.log', maxBytes=5242880, backupCount=20),
     ])
 
-def record_events(graph, events):
-    for event in events:
-        if event['type'] in ['process', 'filemod', 'netconn']:
-            A = graph.find_vertices('pid', event['ppid'])
-            if not A:
-                A = [graph.add_vertex({'pid': event['ppid'], 'id': 'proc:::'})]
-            for a in A:
-                id = 'proc:{}:{}:{}'.format(event['con'], event['uid'], event['exe'])
-                B = graph.find_vertices('pid', event['pid'])
-                if not B:
-                    B = [graph.add_vertex({'pid': event['pid'], 'id': id})]
-                for b in B:
-                    if b.attributes['id'] != id:
-                        graph.update_attributes(b, {'pid': event['pid'], 'id': id})
-                    graph.add_edge(a, b)
-                    logging.debug('+%s', id)
-        if event['type'] == 'filemod':
-            for a in graph.find_vertices('pid', event['pid']):
-                id = 'file:{}:{}'.format(event['action'], event['path'])
-                b = graph.add_vertex({'id': id})
-                graph.add_edge(a, b)
-                logging.debug('+%s', id)
-        if event['type'] == 'netconn':
-            for a in graph.find_vertices('pid', event['pid']):
-                id = 'host:{}:{}'.format(event['ip'], event['port'])
-                b = graph.add_vertex({'id': id})
-                graph.add_edge(a, b)
-                logging.debug('+%s', id)
-
 def update_ignore(ignore, min_similarity, min_found, graph):
-    filenames = {
-        v.attributes['id'][12:]
-        for v in graph.vertices
-        if v.attributes['id'].startswith('file:')
-            and not any(i for i in ignore if i.match(v.attributes['id']))}
-    for p in audit.identify_temps(filenames, min_similarity, min_found):
+    filenames = {v[9:] for v in graph if v.startswith('f:')}
+    unignored = {f for f in filenames if not any(i for i in ignore if i.match(f))}
+    for p in audit.identify_temps(unignored, min_similarity, min_found):
         logging.info('ignore %s', p)
-        ignore.add(re.compile('^file:[^:]+:{}$'.format(p)))
+        ignore.add(re.compile('^f:{}$'.format(p)))
 
-def detect_anomalies(current, baseline, ignore, merge_enabled, alert_enabled):
-    anomalies = baseline.compare(current, 'id', lambda x: any(i for i in ignore if i.match(x)))
+def detect_anomalies(baseline, ignore, merge_enabled, alert_enabled, graph, meta):
+    compressed = graphdb.compress(graph, meta)
+    anomalies = graphdb.compare(baseline, compressed, lambda x: any(i for i in ignore if i.match(x)))
     if alert_enabled:
         for path in anomalies:
-            logging.warning('->'.join(v.attributes['id'] for v in path))
+            logging.warning('->'.join(path))
     if merge_enabled:
         for path in anomalies:
-            baseline.merge_path(path, 'id')
+            graphdb.merge(baseline, path)
         update_ignore(ignore, 0.5, 3, baseline)
 
-def tail_auditd(auditd_path, monitor_seconds, wait_seconds, graph):
+def tail_auditd(auditd_path, monitor_seconds, wait_seconds, graph, meta):
     start = datetime.datetime.now()
     while (datetime.datetime.now() - start).seconds < monitor_seconds:
-        record_events(graph, audit.tail(auditd_path))
+        graphdb.append(graph, meta, audit.tail(auditd_path))
         time.sleep(wait_seconds)
-
-def initialize_graph():
-    graph = graphdb.graph(['pid', 'id'])
-    record_events(graph, audit.processes())
-    return graph
 
 def monitor_loop(auditd_path, baseline_seconds, monitor_seconds, rebase_enabled, wait_seconds):
     logging.info('initialize')
     init = datetime.datetime.now()
-    baseline = graphdb.graph(['id'])
+    baseline = {}
     ignore = set([re.compile('^proc:::$')])
     while True:
         logging.info('monitor')
-        current = initialize_graph()
-        tail_auditd(auditd_path, monitor_seconds, wait_seconds, current)
+        graph, meta = {}, {}
+        graphdb.append(graph, meta, audit.processes())
+        tail_auditd(auditd_path, monitor_seconds, wait_seconds, graph, meta)
         alert_enabled = (datetime.datetime.now() - init).seconds > baseline_seconds
         merge_enabled = rebase_enabled or not alert_enabled
         logging.info('analyze')
-        detect_anomalies(current, baseline, ignore, merge_enabled, alert_enabled)
+        detect_anomalies(baseline, ignore, merge_enabled, alert_enabled, graph, meta)
 
 def main():
     try:
