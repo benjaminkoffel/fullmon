@@ -38,13 +38,13 @@ def compare(baseline, graph, ignore):
     a = []
     q = collections.deque([(v, []) for v in graph])
     while q:
-        v, p = q.popleft()
-        if ignore(v):
+        c, p = q.popleft()
+        if ignore(c):
             continue
-        if v not in baseline or (p and v not in baseline[p[-1]]):
-            a.append(p + [v])
-        for n in graph[v] - set(p):
-            q.append((n, p + [v]))
+        if c not in baseline or (p and c not in baseline.get(p[-1], set())):
+            a.append(p + [c])
+        for n in graph[c] - set(p):
+            q.append((n, p + [c]))
     return a
 
 def merge(graph, path):

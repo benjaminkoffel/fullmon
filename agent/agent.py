@@ -18,11 +18,10 @@ logging.basicConfig(
     ])
 
 def update_ignore(ignore, min_similarity, min_found, graph):
-    filenames = {v[9:] for v in graph if v.startswith('f:')}
-    unignored = {f for f in filenames if not any(i for i in ignore if i.match(f))}
-    for p in audit.identify_temps(unignored, min_similarity, min_found):
+    filenames = {v[9:] for v in graph if v.startswith('f:') and not any(i for i in ignore if i.match(v))}
+    for p in audit.identify_temps(filenames, min_similarity, min_found):
         logging.info('ignore %s', p)
-        ignore.add(re.compile('^f:{}$'.format(p)))
+        ignore.add(re.compile('^f:[^:]+:{}$'.format(p)))
 
 def detect_anomalies(baseline, ignore, merge_enabled, alert_enabled, graph, meta):
     compressed = graphdb.compress(graph, meta)
